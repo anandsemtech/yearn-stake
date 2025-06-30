@@ -6,6 +6,7 @@ import EarningsClaimPanel from "./EarningsClaimPanel";
 import EventLogs from "./EventLogs";
 import LeaderBoard from "./LeaderBoard";
 import PackageCards from "./PackageCards";
+import ReferralTest from "./ReferralTest";
 import StakingModal from "./StakingModal";
 import StarLevelProgress from "./StarLevelProgress";
 import StatsOverview from "./StatsOverview";
@@ -60,6 +61,9 @@ const Dashboard: React.FC = () => {
 
           {/* Earnings Claim Panel */}
           <EarningsClaimPanel />
+
+          {/* Referral Test Component */}
+          <ReferralTest />
 
           {/* Star Level Progress - Featured prominently */}
           <StarLevelProgress

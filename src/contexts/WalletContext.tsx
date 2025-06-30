@@ -1,7 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useAccount } from "wagmi";
+import { Address } from "viem";
+import { useAccount, useAccountEffect } from "wagmi";
 
 import { useTokenDetails } from "../web3/ReadContract/useTokenDetails";
+import {
+  useGoldenStarConfig,
+  useIsGoldenStar,
+  useNextPackageId,
+  useTokenAddresses,
+  useUserStarLevel,
+} from "../web3/ReadContract/useYearnTogetherHooks";
 
 interface User {
   address: string;
@@ -36,12 +44,29 @@ interface TokenDetails {
   error: Error | null;
 }
 
+interface TokenAddresses {
+  yYearnAddress: Address;
+  sYearnAddress: Address;
+  pYearnAddress: Address;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+interface GoldenStarConfig {
+  minReferral: number;
+  timeWindow: number;
+  rewardPercent: number;
+  rewardDuration: number;
+  rewardCapMultiplier: number;
+}
+
 interface WalletContextType {
   isConnected: boolean;
   user: User | null;
   tokenDetails: TokenDetails;
-  connectWallet: () => Promise<void>;
-  disconnectWallet: () => void;
+  tokenAddresses: TokenAddresses;
+  goldenStarConfig: GoldenStarConfig | null;
+  nextPackageId: number | null;
   updateUserProfile: (email: string, phone: string) => void;
 }
 
@@ -60,6 +85,30 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
     refetch: refetchTokenDetails,
   } = useTokenDetails();
 
+  const {
+    yYearnAddress,
+    sYearnAddress,
+    pYearnAddress,
+    isLoading: isTokenAddressesLoading,
+    error: tokenAddressesError,
+  } = useTokenAddresses();
+
+  const { data: userStarLevel } = useUserStarLevel(address as Address);
+
+  const { data: isUserGoldenStar } = useIsGoldenStar(address as Address);
+
+  const { data: goldenStarConfig } = useGoldenStarConfig();
+
+  const { data: nextPackageId } = useNextPackageId();
+
+  useAccountEffect({
+    onConnect: () => {},
+    onDisconnect: () => {
+      console.info("%c⏹️ Disconnecting wallet", "color: #dc2626");
+      disconnectWallet();
+    },
+  });
+
   useEffect(() => {
     const interval = setInterval(() => {
       console.info("%c🔄 Fetching asset details", "color: #bada55");
@@ -76,7 +125,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
         address: address,
         email: "",
         phone: "",
-        starLevel: 2, // Changed to 0 to show "not achieved" state
+        starLevel: (userStarLevel as number) || 0, // Changed to 0 to show "not achieved" state
         totalEarnings: 12500.75,
         totalVolume: 45000,
         totalReferrals: 28,
@@ -87,7 +136,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
           3: 0,
           4: 0,
         },
-        isGoldenStar: false,
+        isGoldenStar: isUserGoldenStar as boolean,
         goldenStarProgress: (3 / 15) * 100, // 3 out of 15 direct referrals
         activePackages: [
           {
@@ -113,54 +162,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
         ],
       });
     }
-  }, [isConnectedWagmi, address]);
-
-  const connectWallet = async () => {
-    // Mock wallet connection with updated user data showing "not achieved" state
-    const mockUser: User = {
-      address: "0x742d35Cc6634C0532925a3b8D35b4E7553f31BA7",
-      email: "",
-      phone: "",
-      starLevel: 2, // Changed to 0 to show "not achieved" state
-      totalEarnings: 12500.75,
-      totalVolume: 45000,
-      totalReferrals: 28,
-      directReferrals: 3, // Less than 5 required for 1-Star
-      levelUsers: {
-        1: 0, // No 1-Star users yet
-        2: 0,
-        3: 0,
-        4: 0,
-      },
-      isGoldenStar: false,
-      goldenStarProgress: (3 / 15) * 100, // 3 out of 15 direct referrals
-      activePackages: [
-        {
-          id: "1",
-          name: "2 Year Package",
-          duration: 2,
-          amount: 5000,
-          apy: 12,
-          startDate: new Date("2024-01-15"),
-          endDate: new Date("2026-01-15"),
-          status: "active",
-        },
-        {
-          id: "2",
-          name: "1 Year Package",
-          duration: 1,
-          amount: 2500,
-          apy: 8,
-          startDate: new Date("2024-03-01"),
-          endDate: new Date("2025-03-01"),
-          status: "active",
-        },
-      ],
-    };
-
-    setUser(mockUser);
-    setIsConnected(true);
-  };
+  }, [isConnectedWagmi, address, userStarLevel, isUserGoldenStar]);
 
   const disconnectWallet = () => {
     setUser(null);
@@ -184,8 +186,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
           error,
           isLoading: isTokenDetailLoading,
         },
-        connectWallet,
-        disconnectWallet,
+        tokenAddresses: {
+          yYearnAddress,
+          sYearnAddress,
+          pYearnAddress,
+          isLoading: isTokenAddressesLoading,
+          error: tokenAddressesError,
+        },
+        goldenStarConfig,
+        nextPackageId: nextPackageId as number,
         updateUserProfile,
       }}
     >

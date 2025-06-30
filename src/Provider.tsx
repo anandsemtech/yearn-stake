@@ -1,4 +1,5 @@
 import App from "./App";
+import { ReferralProvider } from "./contexts/ReferralContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { WalletProvider } from "./contexts/WalletContext";
 import { GraphQLProvider } from "./graphql";
@@ -9,9 +10,11 @@ export const Provider = () => {
     <AppKitProvider>
       <ThemeProvider>
         <WalletProvider>
-          <GraphQLProvider>
-            <App />
-          </GraphQLProvider>
+          <ReferralProvider>
+            <GraphQLProvider>
+              <App />
+            </GraphQLProvider>
+          </ReferralProvider>
         </WalletProvider>
       </ThemeProvider>
     </AppKitProvider>

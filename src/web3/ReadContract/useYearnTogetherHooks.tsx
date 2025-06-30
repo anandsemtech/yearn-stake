@@ -122,28 +122,33 @@ export const useStarTierExecutor = () => {
 };
 
 // Token address hooks
-export const useYYearnAddress = () => {
+export const useTokenAddresses = () => {
   const chainId = useChainId();
-  return useReadContract({
-    ...baseContractConfig(chainId),
-    functionName: "yYearn",
-  });
-};
 
-export const useSYearnAddress = () => {
-  const chainId = useChainId();
-  return useReadContract({
-    ...baseContractConfig(chainId),
-    functionName: "sYearn",
+  const { data, isLoading, error } = useReadContracts({
+    contracts: [
+      {
+        ...baseContractConfig(chainId),
+        functionName: "yYearn",
+      },
+      {
+        ...baseContractConfig(chainId),
+        functionName: "sYearn",
+      },
+      {
+        ...baseContractConfig(chainId),
+        functionName: "pYearn",
+      },
+    ],
   });
-};
 
-export const usePYearnAddress = () => {
-  const chainId = useChainId();
-  return useReadContract({
-    ...baseContractConfig(chainId),
-    functionName: "pYearn",
-  });
+  return {
+    yYearnAddress: data?.[0]?.result as Address,
+    sYearnAddress: data?.[1]?.result as Address,
+    pYearnAddress: data?.[2]?.result as Address,
+    isLoading,
+    error,
+  };
 };
 
 // Package hooks
@@ -159,16 +164,27 @@ export const usePackage = (packageId: number) => {
   const packageData = useMemo(() => {
     if (!data) return null;
 
+    const result = data as [
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+      boolean,
+      boolean,
+      bigint,
+      number[][]
+    ];
     return {
-      id: Number(data[0]),
-      durationYears: Number(data[1]),
-      apr: Number(data[2]),
-      monthlyPrincipalReturnPercent: Number(data[3]),
-      monthlyUnstake: data[4],
-      isActive: data[5],
-      monthlyAPRClaimable: data[6],
-      minStakeAmount: data[7],
-      compositions: data[8] as number[][],
+      id: Number(result[0]),
+      durationYears: Number(result[1]),
+      apr: Number(result[2]),
+      monthlyPrincipalReturnPercent: Number(result[3]),
+      monthlyUnstake: result[4],
+      isActive: result[5],
+      monthlyAPRClaimable: result[6],
+      minStakeAmount: result[7],
+      compositions: result[8],
     } as Package;
   }, [data]);
 
@@ -243,13 +259,14 @@ export const useUserStake = (userAddress: Address, stakeIndex: number) => {
   const stakeData = useMemo(() => {
     if (!data) return null;
 
+    const result = data as [bigint, bigint, bigint, bigint, bigint, bigint];
     return {
-      totalStaked: data[0],
-      claimedAPR: data[1],
-      withdrawnPrincipal: data[2],
-      startTime: Number(data[3]),
-      lastClaimedAt: Number(data[4]),
-      packageId: Number(data[5]),
+      totalStaked: result[0],
+      claimedAPR: result[1],
+      withdrawnPrincipal: result[2],
+      startTime: Number(result[3]),
+      lastClaimedAt: Number(result[4]),
+      packageId: Number(result[5]),
     } as UserStake;
   }, [data]);
 
@@ -272,9 +289,10 @@ export const useUserStakeTokenAmounts = (
   const tokenAmountData = useMemo(() => {
     if (!data) return null;
 
+    const result = data as [Address, bigint];
     return {
-      token: data[0],
-      amount: data[1],
+      token: result[0],
+      amount: result[1],
     } as UserStakeTokenAmount;
   }, [data]);
 
@@ -315,9 +333,10 @@ export const useStarLevelTier = (tierIndex: number) => {
   const tierData = useMemo(() => {
     if (!data) return null;
 
+    const result = data as [bigint, bigint];
     return {
-      level: Number(data[0]),
-      rewardPercent: Number(data[1]),
+      level: Number(result[0]),
+      rewardPercent: Number(result[1]),
     } as StarLevelTier;
   }, [data]);
 
@@ -372,9 +391,10 @@ export const useClaimableStarLevelRewards = (userAddress: Address) => {
   const rewardsData = useMemo(() => {
     if (!data) return null;
 
+    const result = data as [bigint, bigint[]];
     return {
-      totalClaimable: data[0],
-      levelClaimables: data[1] as bigint[],
+      totalClaimable: result[0],
+      levelClaimables: result[1],
     };
   }, [data]);
 
@@ -392,16 +412,15 @@ export const useGoldenStarConfig = () => {
 
   const configData = useMemo(() => {
     if (!data) return null;
-
+    const result = data as [bigint, bigint, bigint, bigint, bigint];
     return {
-      minReferrals: Number(data[0]),
-      timeWindow: Number(data[1]),
-      rewardPercent: Number(data[2]),
-      rewardDuration: Number(data[3]),
-      rewardCapMultiplier: Number(data[4]),
-    } as GoldenStarConfig;
+      minReferral: Number(result[0]),
+      timeWindow: Number(result[1]) / (60 * 60 * 24), // days
+      rewardPercent: Number(result[2]) / 100,
+      rewardDuration: Number(result[3]) / (60 * 60 * 24), // days
+      rewardCapMultiplier: Number(result[4]),
+    };
   }, [data]);
-
   return { data: configData, isLoading, error, refetch };
 };
 
@@ -469,11 +488,12 @@ export const useReferralRewardTier = (tierIndex: number) => {
   const tierData = useMemo(() => {
     if (!data) return null;
 
+    const result = data as [bigint, bigint, bigint, Address];
     return {
-      startLevel: Number(data[0]),
-      endLevel: Number(data[1]),
-      rewardPercent: Number(data[2]),
-      rewardToken: data[3],
+      startLevel: Number(result[0]),
+      endLevel: Number(result[1]),
+      rewardPercent: Number(result[2]),
+      rewardToken: result[3],
     } as ReferralRewardTier;
   }, [data]);
 
@@ -492,11 +512,12 @@ export const useUserRewardTiers = (userAddress: Address, tierIndex: number) => {
   const tierData = useMemo(() => {
     if (!data) return null;
 
+    const result = data as [bigint, bigint, bigint, Address];
     return {
-      startLevel: Number(data[0]),
-      endLevel: Number(data[1]),
-      rewardPercent: Number(data[2]),
-      rewardToken: data[3],
+      startLevel: Number(result[0]),
+      endLevel: Number(result[1]),
+      rewardPercent: Number(result[2]),
+      rewardToken: result[3],
     } as ReferralRewardTier;
   }, [data]);
 

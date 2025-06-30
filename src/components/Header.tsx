@@ -1,21 +1,35 @@
-import { Wallet, Moon, Sun, Settings, Star, Menu, X, Zap } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  Settings,
+  Star,
+  Menu,
+  X,
+  Zap,
+  Copy,
+  Share2,
+} from "lucide-react";
 import React, { useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 
 import { useTheme } from "../contexts/hooks/useTheme";
 import { useWallet } from "../contexts/WalletContext";
 
+import ReferralShareModal from "./ReferralShareModal";
+import ReferralStatus from "./ReferralStatus";
 import TokenSwapModal from "./TokenSwapModal";
 import UserSettingsModal from "./UserSettingsModal";
 
 const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
-  const { user, connectWallet, disconnectWallet } = useWallet();
+  const { user } = useWallet();
   const { isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const [showSettings, setShowSettings] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showTokenSwapModal, setShowTokenSwapModal] = useState(false);
+  const [showCopiedTooltip, setShowCopiedTooltip] = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState(false);
 
   const getStarDisplay = (starLevel: number) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -28,6 +42,19 @@ const Header: React.FC = () => {
         }`}
       />
     ));
+  };
+
+  const copyAddress = async () => {
+    if (user?.address) {
+      try {
+        await navigator.clipboard.writeText(user.address);
+        setShowCopiedTooltip(true);
+        setTimeout(() => setShowCopiedTooltip(false), 2000); // Hide after 2 seconds
+        console.log("Address copied to clipboard");
+      } catch (err) {
+        console.error("Failed to copy address:", err);
+      }
+    }
   };
 
   return (
@@ -58,6 +85,8 @@ const Header: React.FC = () => {
                 </div>
               )}
 
+              <ReferralStatus />
+
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -82,6 +111,28 @@ const Header: React.FC = () => {
                     <span className="text-sm font-medium text-green-700 dark:text-green-300">
                       {user?.address.slice(0, 6)}...{user?.address.slice(-4)}
                     </span>
+                    <div className="relative group">
+                      <button
+                        onClick={copyAddress}
+                        className="p-1 hover:bg-green-100 dark:hover:bg-green-800 rounded transition-colors"
+                        title="Copy address"
+                      >
+                        <Copy className="w-3 h-3 text-green-600 dark:text-green-400" />
+                      </button>
+                      {showCopiedTooltip && (
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-nowrap z-10 opacity-100 transition-opacity duration-200">
+                          Copied!
+                          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowReferralModal(true)}
+                      className="p-1 hover:bg-green-100 dark:hover:bg-green-800 rounded transition-colors"
+                      title="Share address"
+                    >
+                      <Share2 className="w-3 h-3 text-green-600 dark:text-green-400" />
+                    </button>
                   </div>
                   <button
                     onClick={() => setShowTokenSwapModal(true)}
@@ -132,6 +183,8 @@ const Header: React.FC = () => {
                   </div>
                 )}
 
+                <ReferralStatus />
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Theme</span>
                   <button
@@ -146,44 +199,34 @@ const Header: React.FC = () => {
                   </button>
                 </div>
 
-                {isConnected ? (
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => {
-                        setShowSettings(true);
-                        setShowMobileMenu(false);
-                      }}
-                      className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <Settings className="w-4 h-4" />
-                      <span className="text-sm">Settings</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowTokenSwapModal(true);
-                        setShowMobileMenu(false);
-                      }}
-                      className="w-full flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg transition-colors"
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span className="text-sm">Swap Tokens</span>
-                    </button>
-                    <button
-                      onClick={disconnectWallet}
-                      className="w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-                ) : (
+                <div className="space-y-2">
                   <button
-                    onClick={connectWallet}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg transition-colors"
+                    onClick={() => {
+                      setShowSettings(true);
+                      setShowMobileMenu(false);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                   >
-                    <Wallet className="w-4 h-4" />
-                    <span className="font-medium">Connect Wallet</span>
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm">Settings</span>
                   </button>
-                )}
+                  <button
+                    onClick={() => {
+                      setShowTokenSwapModal(true);
+                      setShowMobileMenu(false);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg transition-colors"
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span className="text-sm">Swap Tokens</span>
+                  </button>
+                  <button
+                    onClick={() => disconnect()}
+                    className="w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
+                  >
+                    Disconnect
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -197,6 +240,10 @@ const Header: React.FC = () => {
 
       {showSettings && (
         <UserSettingsModal onClose={() => setShowSettings(false)} />
+      )}
+
+      {showReferralModal && (
+        <ReferralShareModal onClose={() => setShowReferralModal(false)} />
       )}
     </>
   );
