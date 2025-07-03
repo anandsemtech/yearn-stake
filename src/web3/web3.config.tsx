@@ -3,7 +3,7 @@ import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
-import { polygonAmoy } from "wagmi/chains";
+import { baseSepolia } from "wagmi/chains";
 
 import { Networks } from "../common/types";
 
@@ -19,7 +19,7 @@ const metadata = {
 };
 
 // 3. Set the networks
-const networks = [polygonAmoy] as Networks;
+const networks = [baseSepolia] as Networks;
 
 // 4. Create Wagmi Adapter
 const wagmiAdapter = new WagmiAdapter({

@@ -13,8 +13,7 @@ export interface Package {
   monthlyUnstake: boolean;
   isActive: boolean;
   monthlyAPRClaimable: boolean;
-  minStakeAmount: bigint;
-  compositions: number[][];
+  minStakeAmount: bigint | number;
 }
 
 export interface UserStake {
@@ -168,24 +167,22 @@ export const usePackage = (packageId: number) => {
       bigint,
       bigint,
       bigint,
-      bigint,
-      boolean,
       boolean,
       boolean,
       bigint,
-      number[][]
+      bigint,
+      boolean
     ];
     return {
       id: Number(result[0]),
       durationYears: Number(result[1]),
-      apr: Number(result[2]),
-      monthlyPrincipalReturnPercent: Number(result[3]),
-      monthlyUnstake: result[4],
-      isActive: result[5],
-      monthlyAPRClaimable: result[6],
-      minStakeAmount: result[7],
-      compositions: result[8],
-    } as Package;
+      apr: Number(result[2]) / 100,
+      monthlyUnstake: result[3],
+      monthlyPrincipalReturnPercent: Number(result[6]) / 100,
+      isActive: result[4],
+      monthlyAPRClaimable: result[7],
+      minStakeAmount: Number(result[5]),
+    };
   }, [data]);
 
   return { data: packageData, isLoading, error, refetch };

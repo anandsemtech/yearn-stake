@@ -1,5 +1,8 @@
 import { X, DollarSign, Calendar, TrendingUp, Lock } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+
+import { usePackage } from "../web3/ReadContract";
+import { useApproveAndProcess } from "../web3/WriteContract/useApproveAndProcess";
 
 interface StakingModalProps {
   package: any;
@@ -11,17 +14,38 @@ const StakingModal: React.FC<StakingModalProps> = ({
   onClose,
 }) => {
   const [amount, setAmount] = useState(pkg.minAmount.toString());
-  const [isStaking, setIsStaking] = useState(false);
+  const [referrer] = useState(() => {
+    const referrer = localStorage.getItem("yearn_together_referral");
+    if (!referrer) {
+      return "0x0000000000000000000000000000000000000000";
+    }
+    return JSON.parse(referrer);
+  });
+
+  const { data: packageData } = usePackage(Number(pkg.id));
+
+  const { stake, isStakePending, isStakeSuccess } = useApproveAndProcess();
+
+  useEffect(() => {
+    if (isStakeSuccess) {
+      onClose();
+    }
+  }, [isStakeSuccess, onClose]);
 
   const handleStake = async () => {
-    setIsStaking(true);
-    // Mock staking process
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsStaking(false);
-    onClose();
+    stake({
+      packageId: Number(pkg.id),
+      amounts: [amount],
+      referrer: referrer.referrerAddress,
+    });
   };
 
-  const projectedEarnings = (parseFloat(amount) * pkg.apy) / 100;
+  useEffect(() => {
+    setAmount(packageData?.minStakeAmount.toString() ?? "0");
+  }, [packageData?.minStakeAmount]);
+
+  const projectedEarnings =
+    amount > 0 ? (parseFloat(amount) * pkg.apy) / 100 : 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -47,14 +71,15 @@ const StakingModal: React.FC<StakingModalProps> = ({
                   Duration
                 </span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {pkg.duration} {pkg.duration === 1 ? "Year" : "Years"}
+                  {packageData?.durationYears}{" "}
+                  {packageData?.durationYears === 1 ? "Year" : "Years"}
                 </span>
               </div>
               <div className="flex items-center space-x-2">
                 <TrendingUp className="w-4 h-4 text-green-500" />
                 <span className="text-gray-600 dark:text-gray-400">APY</span>
                 <span className="font-medium text-green-600 dark:text-green-400">
-                  {pkg.apy}%
+                  {packageData?.apr}%
                 </span>
               </div>
             </div>
@@ -70,13 +95,13 @@ const StakingModal: React.FC<StakingModalProps> = ({
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                min={pkg.minAmount}
+                min={packageData?.minStakeAmount}
                 step="100"
                 className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               />
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Minimum amount: ${pkg.minAmount.toLocaleString()}
+              Minimum amount: ${packageData?.minStakeAmount.toLocaleString()}
             </p>
           </div>
 
@@ -95,22 +120,25 @@ const StakingModal: React.FC<StakingModalProps> = ({
           <div className="flex space-x-3 pt-4">
             <button
               onClick={onClose}
-              disabled={isStaking}
+              disabled={isStakePending}
               className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleStake}
-              disabled={isStaking || parseFloat(amount) < pkg.minAmount}
+              disabled={
+                isStakePending ||
+                parseFloat(amount) < (packageData?.minStakeAmount ?? 0)
+              }
               className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg hover:from-purple-600 hover:to-blue-700 transition-all disabled:opacity-50"
             >
-              {isStaking ? (
+              {isStakePending ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <Lock className="w-4 h-4" />
               )}
-              <span>{isStaking ? "Staking..." : "Stake Now"}</span>
+              <span>{isStakePending ? "Staking..." : "Stake Now"}</span>
             </button>
           </div>
         </div>

@@ -1,13 +1,15 @@
 import { useCallback } from "react";
-import { Address, erc20Abi } from "viem";
+import { Address, erc20Abi, formatUnits, parseEther } from "viem";
 import {
   useChainId,
   useWriteContract,
   useReadContract,
   useWaitForTransactionReceipt,
+  useAccount,
 } from "wagmi";
 
-import { baseContractConfig, ASSET_ADDRESS } from "../contract";
+import { useWallet } from "../../contexts/WalletContext";
+import { baseContractConfig, ASSET_ADDRESS, BASE_CONTRACT } from "../contract";
 
 // Utility function to get token address with fallback
 const getTokenAddress = (chainId: number, tokenAddress?: Address): Address => {
@@ -36,7 +38,7 @@ export const useERC20Allowance = (
   spenderAddress?: Address
 ) => {
   const chainId = useChainId();
-  const actualTokenAddress = getTokenAddress(chainId, tokenAddress);
+  const actualTokenAddress = tokenAddress || getTokenAddress(chainId);
   const actualSpenderAddress = spenderAddress || getContractAddress(chainId);
 
   return useReadContract({
@@ -60,7 +62,8 @@ export const useERC20Approve = () => {
       tokenAddress?: Address,
       spenderAddress?: Address
     ) => {
-      const actualTokenAddress = getTokenAddress(chainId, tokenAddress);
+      const actualTokenAddress =
+        tokenAddress || getTokenAddress(chainId, tokenAddress);
       const actualSpenderAddress =
         spenderAddress || getContractAddress(chainId);
 
@@ -249,18 +252,25 @@ export const useClaimAllStarRewards = () => {
 export const useClaimReferralRewards = () => {
   const chainId = useChainId();
 
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
+  const {
+    data: hash,
+    isPending,
+    error,
+    writeContractAsync,
+    isSuccess,
+  } = useWriteContract();
 
   const claimReferralRewards = useCallback(async () => {
-    return writeContract({
+    return await writeContractAsync({
       ...baseContractConfig(chainId),
       functionName: "claimReferralRewards",
     });
-  }, [writeContract, chainId]);
+  }, [writeContractAsync, chainId]);
 
   return {
     claimReferralRewards,
     hash,
+    isSuccess,
     isPending,
     error,
   };
@@ -713,23 +723,39 @@ export const useStakeWithApproval = () => {
     error: approveError,
   } = useERC20Approve();
   const { stake, isPending: isStakePending, error: stakeError } = useStake();
+  const {
+    tokenAddresses: { yYearnAddress },
+  } = useWallet();
+  const chainId = useChainId();
+  const { address } = useAccount();
+  const { data: allowance } = useERC20Allowance(
+    yYearnAddress,
+    address,
+    BASE_CONTRACT[chainId as keyof typeof BASE_CONTRACT].address
+  );
 
   const stakeWithApproval = useCallback(
     async (
-      tokenAddress: Address,
       packageId: number,
       tokens: Address[],
       amounts: bigint[],
-      referrer: Address,
-      contractAddress: Address
+      referrer: Address
     ) => {
       // First approve the contract to spend tokens
-      await approve(amounts[0], tokenAddress, contractAddress);
+      const formattedAmount = parseEther(amounts[0].toString());
+      const allowanceAmount = formatUnits(allowance || 0n, 18);
+      if (Number(allowanceAmount) < Number(amounts[0])) {
+        await approve(
+          formattedAmount,
+          yYearnAddress,
+          BASE_CONTRACT[chainId as keyof typeof BASE_CONTRACT].address
+        );
+      }
 
       // Then stake
       return await stake(packageId, tokens, amounts, referrer);
     },
-    [approve, stake]
+    [allowance, stake, approve, yYearnAddress, chainId]
   );
 
   return {

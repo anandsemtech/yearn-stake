@@ -11,7 +11,7 @@ import StakingModal from "./StakingModal";
 import StarLevelProgress from "./StarLevelProgress";
 import StatsOverview from "./StatsOverview";
 
-interface Package {
+export interface Package {
   id: string;
   name: string;
   minAmount: number;
@@ -93,7 +93,10 @@ const Dashboard: React.FC = () => {
       {showStakingModal && selectedPackage && (
         <StakingModal
           package={selectedPackage}
-          onClose={() => setShowStakingModal(false)}
+          onClose={() => {
+            setShowStakingModal(false);
+            setSelectedPackage(null);
+          }}
         />
       )}
     </div>

@@ -28,6 +28,16 @@
 	},
 	{
 		"inputs": [],
+		"name": "EnforcedPause",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "ExpectedPause",
+		"type": "error"
+	},
+	{
+		"inputs": [],
 		"name": "FailedInnerCall",
 		"type": "error"
 	},
@@ -61,6 +71,11 @@
 			}
 		],
 		"name": "OwnableUnauthorizedAccount",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "ReentrancyGuardReentrantCall",
 		"type": "error"
 	},
 	{
@@ -127,27 +142,8 @@
 			{
 				"indexed": false,
 				"internalType": "uint256",
-				"name": "stakeIndex",
+				"name": "activatedAt",
 				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "EmergencyWithdraw",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
 			}
 		],
 		"name": "GoldenStarActivated",
@@ -157,6 +153,62 @@
 		"anonymous": false,
 		"inputs": [
 			{
+				"indexed": false,
+				"internalType": "uint16",
+				"name": "minReferrals",
+				"type": "uint16"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "timeWindow",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint16",
+				"name": "rewardPercent",
+				"type": "uint16"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "rewardDuration",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint8",
+				"name": "rewardCapMultiplier",
+				"type": "uint8"
+			}
+		],
+		"name": "GoldenStarConfigUpdated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "GoldenStarRewardClaimed",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
 				"indexed": true,
 				"internalType": "address",
 				"name": "user",
@@ -171,13 +223,13 @@
 			{
 				"indexed": false,
 				"internalType": "uint256",
-				"name": "totalDistributedSoFar",
+				"name": "cumulative",
 				"type": "uint256"
 			},
 			{
 				"indexed": false,
 				"internalType": "uint256",
-				"name": "stakedCapLimit",
+				"name": "cap",
 				"type": "uint256"
 			}
 		],
@@ -226,57 +278,46 @@
 				"type": "uint256"
 			},
 			{
-				"components": [
-					{
-						"internalType": "uint16",
-						"name": "id",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "durationYears",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "apr",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "monthlyPrincipalReturnPercent",
-						"type": "uint16"
-					},
-					{
-						"internalType": "bool",
-						"name": "monthlyUnstake",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "isActive",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "monthlyAPRClaimable",
-						"type": "bool"
-					},
-					{
-						"internalType": "uint256",
-						"name": "minStakeAmount",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint8[][]",
-						"name": "compositions",
-						"type": "uint8[][]"
-					}
-				],
 				"indexed": false,
-				"internalType": "struct YearnTogetherUpgradeable.Package",
-				"name": "pkg",
-				"type": "tuple"
+				"internalType": "uint16",
+				"name": "durationYears",
+				"type": "uint16"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint16",
+				"name": "apr",
+				"type": "uint16"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "monthlyUnstake",
+				"type": "bool"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "isActive",
+				"type": "bool"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "minStakeAmount",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint16",
+				"name": "monthlyPrincipalReturnPercent",
+				"type": "uint16"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "monthlyAPRClaimable",
+				"type": "bool"
 			}
 		],
 		"name": "PackageCreated",
@@ -292,57 +333,46 @@
 				"type": "uint256"
 			},
 			{
-				"components": [
-					{
-						"internalType": "uint16",
-						"name": "id",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "durationYears",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "apr",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "monthlyPrincipalReturnPercent",
-						"type": "uint16"
-					},
-					{
-						"internalType": "bool",
-						"name": "monthlyUnstake",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "isActive",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "monthlyAPRClaimable",
-						"type": "bool"
-					},
-					{
-						"internalType": "uint256",
-						"name": "minStakeAmount",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint8[][]",
-						"name": "compositions",
-						"type": "uint8[][]"
-					}
-				],
 				"indexed": false,
-				"internalType": "struct YearnTogetherUpgradeable.Package",
-				"name": "pkg",
-				"type": "tuple"
+				"internalType": "uint16",
+				"name": "durationYears",
+				"type": "uint16"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint16",
+				"name": "apr",
+				"type": "uint16"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "monthlyUnstake",
+				"type": "bool"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "isActive",
+				"type": "bool"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "minStakeAmount",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint16",
+				"name": "monthlyPrincipalReturnPercent",
+				"type": "uint16"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "monthlyAPRClaimable",
+				"type": "bool"
 			}
 		],
 		"name": "PackageUpdated",
@@ -452,6 +482,31 @@
 		"anonymous": false,
 		"inputs": [
 			{
+				"indexed": false,
+				"internalType": "uint8",
+				"name": "levelOneRequirement",
+				"type": "uint8"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint8",
+				"name": "subLevelRequirement",
+				"type": "uint8"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint8",
+				"name": "maxStarLevel",
+				"type": "uint8"
+			}
+		],
+		"name": "StarLevelRequirementsUpdated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
 				"indexed": true,
 				"internalType": "address",
 				"name": "user",
@@ -464,7 +519,7 @@
 				"type": "uint8"
 			}
 		],
-		"name": "StarLevelUpgraded",
+		"name": "StarLevelUpdated",
 		"type": "event"
 	},
 	{
@@ -499,37 +554,6 @@
 				"indexed": true,
 				"internalType": "address",
 				"name": "user",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "totalClaimed",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256[5]",
-				"name": "levelRewards",
-				"type": "uint256[5]"
-			},
-			{
-				"indexed": false,
-				"internalType": "bool[5]",
-				"name": "isGoldenReward",
-				"type": "bool[5]"
-			}
-		],
-		"name": "StarRewardClaimedBreakdown",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "star",
 				"type": "address"
 			},
 			{
@@ -613,17 +637,23 @@
 		"type": "event"
 	},
 	{
-		"inputs": [],
-		"name": "MAX_REFERRAL_LEVEL",
-		"outputs": [
+		"anonymous": false,
+		"inputs": [
 			{
-				"internalType": "uint8",
-				"name": "",
-				"type": "uint8"
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint8[]",
+				"name": "composition",
+				"type": "uint8[]"
 			}
 		],
-		"stateMutability": "view",
-		"type": "function"
+		"name": "ValidCompositionAdded",
+		"type": "event"
 	},
 	{
 		"inputs": [],
@@ -654,6 +684,44 @@
 	{
 		"inputs": [
 			{
+				"internalType": "uint8[3]",
+				"name": "composition",
+				"type": "uint8[3]"
+			}
+		],
+		"name": "addValidComposition",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"components": [
+					{
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"internalType": "uint8",
+						"name": "newLevel",
+						"type": "uint8"
+					}
+				],
+				"internalType": "struct YearnTogetherStaking.StarLevelUpdate[]",
+				"name": "updates",
+				"type": "tuple[]"
+			}
+		],
+		"name": "batchUpdateStarLevel",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "uint256",
 				"name": "stakeIndex",
 				"type": "uint256"
@@ -666,7 +734,7 @@
 	},
 	{
 		"inputs": [],
-		"name": "claimAllStarRewards",
+		"name": "claimGoldenStarRewards",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -679,14 +747,8 @@
 		"type": "function"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "uint8",
-				"name": "level",
-				"type": "uint8"
-			}
-		],
-		"name": "claimStarReward",
+		"inputs": [],
+		"name": "claimStarLevelRewards",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -732,11 +794,6 @@
 				"type": "uint256"
 			},
 			{
-				"internalType": "uint8[][]",
-				"name": "compositions",
-				"type": "uint8[][]"
-			},
-			{
 				"internalType": "uint16",
 				"name": "monthlyPrincipalReturnPercent",
 				"type": "uint16"
@@ -750,43 +807,6 @@
 		"name": "createPackage",
 		"outputs": [],
 		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "downgradeGoldenStar",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "getClaimableStarLevelRewards",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "totalClaimable",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256[5]",
-				"name": "levelClaimables",
-				"type": "uint256[5]"
-			}
-		],
-		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -838,19 +858,52 @@
 				"internalType": "address",
 				"name": "user",
 				"type": "address"
-			},
-			{
-				"internalType": "uint8",
-				"name": "level",
-				"type": "uint8"
 			}
 		],
-		"name": "getStarLevelPercent",
+		"name": "getPendingGoldenStarRewards",
 		"outputs": [
 			{
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "getPendingStarRewards",
+		"outputs": [
+			{
+				"internalType": "uint256[5]",
+				"name": "",
+				"type": "uint256[5]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "getReferrals",
+		"outputs": [
+			{
+				"internalType": "address[]",
+				"name": "",
+				"type": "address[]"
 			}
 		],
 		"stateMutability": "view",
@@ -953,31 +1006,19 @@
 						"type": "uint8"
 					}
 				],
-				"internalType": "struct YearnTogetherUpgradeable.GoldenStarConfig",
+				"internalType": "struct YearnTogetherStaking.GoldenStarConfig",
 				"name": "_goldenStarConfig",
 				"type": "tuple"
-			},
-			{
-				"components": [
-					{
-						"internalType": "uint8",
-						"name": "level",
-						"type": "uint8"
-					},
-					{
-						"internalType": "uint16",
-						"name": "rewardPercent",
-						"type": "uint16"
-					}
-				],
-				"internalType": "struct YearnTogetherUpgradeable.StarLevelTier[]",
-				"name": "_starLevelTiers",
-				"type": "tuple[]"
 			},
 			{
 				"internalType": "uint256",
 				"name": "_claimableInterval",
 				"type": "uint256"
+			},
+			{
+				"internalType": "uint8",
+				"name": "_maxReferralLevel",
+				"type": "uint8"
 			}
 		],
 		"name": "initialize",
@@ -1023,6 +1064,45 @@
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "levelOneReferralRequirement",
+		"outputs": [
+			{
+				"internalType": "uint8",
+				"name": "",
+				"type": "uint8"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "maxReferralLevel",
+		"outputs": [
+			{
+				"internalType": "uint8",
+				"name": "",
+				"type": "uint8"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "maxStarLevel",
+		"outputs": [
+			{
+				"internalType": "uint8",
+				"name": "",
+				"type": "uint8"
 			}
 		],
 		"stateMutability": "view",
@@ -1093,11 +1173,6 @@
 				"type": "uint16"
 			},
 			{
-				"internalType": "uint16",
-				"name": "monthlyPrincipalReturnPercent",
-				"type": "uint16"
-			},
-			{
 				"internalType": "bool",
 				"name": "monthlyUnstake",
 				"type": "bool"
@@ -1108,14 +1183,19 @@
 				"type": "bool"
 			},
 			{
-				"internalType": "bool",
-				"name": "monthlyAPRClaimable",
-				"type": "bool"
-			},
-			{
 				"internalType": "uint256",
 				"name": "minStakeAmount",
 				"type": "uint256"
+			},
+			{
+				"internalType": "uint16",
+				"name": "monthlyPrincipalReturnPercent",
+				"type": "uint16"
+			},
+			{
+				"internalType": "bool",
+				"name": "monthlyAPRClaimable",
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
@@ -1136,6 +1216,25 @@
 				"internalType": "bool",
 				"name": "",
 				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "pendingStarRewards",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "goldenStarAmount",
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "view",
@@ -1320,39 +1419,45 @@
 	{
 		"inputs": [
 			{
-				"components": [
-					{
-						"internalType": "uint16",
-						"name": "minReferrals",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint32",
-						"name": "timeWindow",
-						"type": "uint32"
-					},
-					{
-						"internalType": "uint16",
-						"name": "rewardPercent",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint32",
-						"name": "rewardDuration",
-						"type": "uint32"
-					},
-					{
-						"internalType": "uint8",
-						"name": "rewardCapMultiplier",
-						"type": "uint8"
-					}
-				],
-				"internalType": "struct YearnTogetherUpgradeable.GoldenStarConfig",
-				"name": "config",
-				"type": "tuple"
+				"internalType": "uint16",
+				"name": "minReferrals",
+				"type": "uint16"
+			},
+			{
+				"internalType": "uint32",
+				"name": "timeWindow",
+				"type": "uint32"
+			},
+			{
+				"internalType": "uint16",
+				"name": "rewardPercent",
+				"type": "uint16"
+			},
+			{
+				"internalType": "uint32",
+				"name": "rewardDuration",
+				"type": "uint32"
+			},
+			{
+				"internalType": "uint8",
+				"name": "rewardCapMultiplier",
+				"type": "uint8"
 			}
 		],
 		"name": "setGoldenStarConfig",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint8",
+				"name": "_level",
+				"type": "uint8"
+			}
+		],
+		"name": "setMaxReferralLevel",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -1382,7 +1487,7 @@
 						"type": "address"
 					}
 				],
-				"internalType": "struct YearnTogetherUpgradeable.ReferralRewardTier[]",
+				"internalType": "struct YearnTogetherStaking.ReferralRewardTier[]",
 				"name": "tiers",
 				"type": "tuple[]"
 			}
@@ -1395,24 +1500,22 @@
 	{
 		"inputs": [
 			{
-				"components": [
-					{
-						"internalType": "uint8",
-						"name": "level",
-						"type": "uint8"
-					},
-					{
-						"internalType": "uint16",
-						"name": "rewardPercent",
-						"type": "uint16"
-					}
-				],
-				"internalType": "struct YearnTogetherUpgradeable.StarLevelTier[]",
-				"name": "tiers",
-				"type": "tuple[]"
+				"internalType": "uint8",
+				"name": "_levelOneReferralRequirement",
+				"type": "uint8"
+			},
+			{
+				"internalType": "uint8",
+				"name": "_subLevelReferralRequirement",
+				"type": "uint8"
+			},
+			{
+				"internalType": "uint8",
+				"name": "_maxStarLevel",
+				"type": "uint8"
 			}
 		],
-		"name": "setStarLevelTiers",
+		"name": "setStarLevelRequirements",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -1426,24 +1529,6 @@
 			}
 		],
 		"name": "setStarTierExecutor",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"internalType": "uint8",
-				"name": "level",
-				"type": "uint8"
-			}
-		],
-		"name": "setUserStarLevel",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -1549,30 +1634,6 @@
 		"type": "function"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "starLevelTiers",
-		"outputs": [
-			{
-				"internalType": "uint8",
-				"name": "level",
-				"type": "uint8"
-			},
-			{
-				"internalType": "uint16",
-				"name": "rewardPercent",
-				"type": "uint16"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
 		"inputs": [],
 		"name": "starTierExecutor",
 		"outputs": [
@@ -1580,6 +1641,19 @@
 				"internalType": "address",
 				"name": "",
 				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "subLevelReferralRequirement",
+		"outputs": [
+			{
+				"internalType": "uint8",
+				"name": "",
+				"type": "uint8"
 			}
 		],
 		"stateMutability": "view",
@@ -1621,64 +1695,90 @@
 	{
 		"inputs": [
 			{
+				"internalType": "address[]",
+				"name": "users",
+				"type": "address[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "goldenAmounts",
+				"type": "uint256[]"
+			}
+		],
+		"name": "updateGoldenStarEarnings",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "uint16",
 				"name": "packageId",
 				"type": "uint16"
 			},
 			{
-				"components": [
-					{
-						"internalType": "uint16",
-						"name": "id",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "durationYears",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "apr",
-						"type": "uint16"
-					},
-					{
-						"internalType": "uint16",
-						"name": "monthlyPrincipalReturnPercent",
-						"type": "uint16"
-					},
-					{
-						"internalType": "bool",
-						"name": "monthlyUnstake",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "isActive",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "monthlyAPRClaimable",
-						"type": "bool"
-					},
-					{
-						"internalType": "uint256",
-						"name": "minStakeAmount",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint8[][]",
-						"name": "compositions",
-						"type": "uint8[][]"
-					}
-				],
-				"internalType": "struct YearnTogetherUpgradeable.Package",
-				"name": "pkg",
-				"type": "tuple"
+				"internalType": "uint16",
+				"name": "durationYears",
+				"type": "uint16"
+			},
+			{
+				"internalType": "uint16",
+				"name": "apr",
+				"type": "uint16"
+			},
+			{
+				"internalType": "bool",
+				"name": "monthlyUnstake",
+				"type": "bool"
+			},
+			{
+				"internalType": "bool",
+				"name": "isActive",
+				"type": "bool"
+			},
+			{
+				"internalType": "uint256",
+				"name": "minStakeAmount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint16",
+				"name": "monthlyPrincipalReturnPercent",
+				"type": "uint16"
+			},
+			{
+				"internalType": "bool",
+				"name": "monthlyAPRClaimable",
+				"type": "bool"
 			}
 		],
 		"name": "updatePackage",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"components": [
+					{
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256[]",
+						"name": "starAmounts",
+						"type": "uint256[]"
+					}
+				],
+				"internalType": "struct YearnTogetherStaking.StarEarningUpdate[]",
+				"name": "updates",
+				"type": "tuple[]"
+			}
+		],
+		"name": "updateStarEarnings",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -1837,6 +1937,11 @@
 				"internalType": "uint16",
 				"name": "packageId",
 				"type": "uint16"
+			},
+			{
+				"internalType": "bool",
+				"name": "isFullyUnstaked",
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
@@ -1875,6 +1980,30 @@
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "validCompositions",
+		"outputs": [
+			{
+				"internalType": "uint8",
+				"name": "",
+				"type": "uint8"
 			}
 		],
 		"stateMutability": "view",

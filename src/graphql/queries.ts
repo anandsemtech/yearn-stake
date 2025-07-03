@@ -68,7 +68,7 @@ export const GET_USER_STAR_LEVEL_UPGRADES = gql`
     $first: Int = 100
     $skip: Int = 0
   ) {
-    starLevelUpgradeds(
+    starLevelUpdateds(
       where: { user: $user }
       first: $first
       skip: $skip
@@ -109,31 +109,6 @@ export const GET_USER_STAR_REWARDS_CLAIMED = gql`
   }
 `;
 
-export const GET_USER_STAR_REWARDS_BREAKDOWN = gql`
-  query GetUserStarRewardsBreakdown(
-    $user: Bytes!
-    $first: Int = 100
-    $skip: Int = 0
-  ) {
-    starRewardClaimedBreakdowns(
-      where: { user: $user }
-      first: $first
-      skip: $skip
-      orderBy: blockTimestamp
-      orderDirection: desc
-    ) {
-      id
-      user
-      totalClaimed
-      levelRewards
-      isGoldenReward
-      blockNumber
-      blockTimestamp
-      transactionHash
-    }
-  }
-`;
-
 // Golden Star Related Queries
 export const GET_USER_GOLDEN_STAR_ACTIVATIONS = gql`
   query GetUserGoldenStarActivations(
@@ -150,6 +125,7 @@ export const GET_USER_GOLDEN_STAR_ACTIVATIONS = gql`
     ) {
       id
       user
+      activatedAt
       blockNumber
       blockTimestamp
       transactionHash
@@ -173,8 +149,31 @@ export const GET_USER_GOLDEN_STAR_REWARDS = gql`
       id
       user
       amount
-      totalDistributedSoFar
-      stakedCapLimit
+      cumulative
+      cap
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+export const GET_USER_GOLDEN_STAR_REWARDS_CLAIMED = gql`
+  query GetUserGoldenStarRewardsClaimed(
+    $user: Bytes!
+    $first: Int = 100
+    $skip: Int = 0
+  ) {
+    goldenStarRewardClaimeds(
+      where: { user: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      user
+      amount
       blockNumber
       blockTimestamp
       transactionHash
@@ -233,7 +232,22 @@ export const GET_USER_REFERRAL_REWARDS_CLAIMED = gql`
   }
 `;
 
-// Package Related Queries
+export interface PackageCreated {
+  id: string;
+  internal_id: string;
+  durationYears: number;
+  apr: number;
+  isActive: boolean;
+  minStakeAmount: number;
+  monthlyPrincipalReturnPercent: number;
+  monthlyAPRClaimable: boolean;
+  monthlyUnstake: boolean;
+  blockNumber: string;
+  blockTimestamp: string;
+  transactionHash: string;
+}
+
+// Package Related Queries - Updated to match schema
 export const GET_PACKAGES_CREATED = gql`
   query GetPackagesCreated($first: Int = 100, $skip: Int = 0) {
     packageCreateds(
@@ -244,15 +258,13 @@ export const GET_PACKAGES_CREATED = gql`
     ) {
       id
       internal_id
-      pkg_id
-      pkg_durationYears
-      pkg_apr
-      pkg_monthlyPrincipalReturnPercent
-      pkg_monthlyUnstake
-      pkg_isActive
-      pkg_monthlyAPRClaimable
-      pkg_minStakeAmount
-      pkg_compositions
+      durationYears
+      apr
+      monthlyUnstake
+      isActive
+      minStakeAmount
+      monthlyPrincipalReturnPercent
+      monthlyAPRClaimable
       blockNumber
       blockTimestamp
       transactionHash
@@ -270,40 +282,13 @@ export const GET_PACKAGES_UPDATED = gql`
     ) {
       id
       internal_id
-      pkg_id
-      pkg_durationYears
-      pkg_apr
-      pkg_monthlyPrincipalReturnPercent
-      pkg_monthlyUnstake
-      pkg_isActive
-      pkg_monthlyAPRClaimable
-      pkg_minStakeAmount
-      pkg_compositions
-      blockNumber
-      blockTimestamp
-      transactionHash
-    }
-  }
-`;
-
-// Emergency Withdrawals
-export const GET_USER_EMERGENCY_WITHDRAWS = gql`
-  query GetUserEmergencyWithdraws(
-    $user: Bytes!
-    $first: Int = 100
-    $skip: Int = 0
-  ) {
-    emergencyWithdraws(
-      where: { user: $user }
-      first: $first
-      skip: $skip
-      orderBy: blockTimestamp
-      orderDirection: desc
-    ) {
-      id
-      user
-      stakeIndex
-      amount
+      durationYears
+      apr
+      monthlyUnstake
+      isActive
+      minStakeAmount
+      monthlyPrincipalReturnPercent
+      monthlyAPRClaimable
       blockNumber
       blockTimestamp
       transactionHash
@@ -314,19 +299,19 @@ export const GET_USER_EMERGENCY_WITHDRAWS = gql`
 // Star Reward Distribution
 export const GET_STAR_REWARDS_DISTRIBUTED = gql`
   query GetStarRewardsDistributed(
-    $star: Bytes!
+    $user: Bytes!
     $first: Int = 100
     $skip: Int = 0
   ) {
     starRewardDistributeds(
-      where: { star: $star }
+      where: { user: $user }
       first: $first
       skip: $skip
       orderBy: blockTimestamp
       orderDirection: desc
     ) {
       id
-      star
+      user
       level
       amount
       blockNumber
@@ -443,6 +428,67 @@ export const GET_INITIALIZED_EVENTS = gql`
   }
 `;
 
+// Star Level Requirements Updates
+export const GET_STAR_LEVEL_REQUIREMENTS_UPDATES = gql`
+  query GetStarLevelRequirementsUpdates($first: Int = 100, $skip: Int = 0) {
+    starLevelRequirementsUpdateds(
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      levelOneRequirement
+      subLevelRequirement
+      maxStarLevel
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+// Golden Star Config Updates
+export const GET_GOLDEN_STAR_CONFIG_UPDATES = gql`
+  query GetGoldenStarConfigUpdates($first: Int = 100, $skip: Int = 0) {
+    goldenStarConfigUpdateds(
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      minReferrals
+      timeWindow
+      rewardPercent
+      rewardDuration
+      rewardCapMultiplier
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+// Valid Composition Added Events
+export const GET_VALID_COMPOSITION_ADDED = gql`
+  query GetValidCompositionAdded($first: Int = 100, $skip: Int = 0) {
+    validCompositionAddeds(
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      internal_id
+      composition
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
 // Aggregate Queries for Dashboard
 export const GET_USER_DASHBOARD_DATA = gql`
   query GetUserDashboardData($user: Bytes!) {
@@ -473,7 +519,7 @@ export const GET_USER_DASHBOARD_DATA = gql`
     }
 
     # Get user's star level upgrades
-    starLevelUpgradeds: starLevelUpgradeds(
+    starLevelUpdateds: starLevelUpdateds(
       where: { user: $user }
       first: 5
       orderBy: blockTimestamp
@@ -505,6 +551,7 @@ export const GET_USER_DASHBOARD_DATA = gql`
       orderDirection: desc
     ) {
       id
+      activatedAt
       blockTimestamp
     }
   }
@@ -535,7 +582,7 @@ export const GET_SYSTEM_ANALYTICS = gql`
     }
 
     # Star level upgrades
-    starLevelUpgrades: starLevelUpgradeds(first: $first) {
+    starLevelUpgrades: starLevelUpdateds(first: $first) {
       id
       newLevel
       blockTimestamp
@@ -552,6 +599,7 @@ export const GET_SYSTEM_ANALYTICS = gql`
     # Golden star activations
     goldenStarActivations: goldenStarActivateds(first: $first) {
       id
+      activatedAt
       blockTimestamp
     }
   }
@@ -688,51 +736,24 @@ export const GET_TRANSACTION_BY_HASH = gql`
   }
 `;
 
-// Additional queries for specific use cases
-export const GET_ACTIVE_PACKAGES = gql`
-  query GetActivePackages($first: Int = 100, $skip: Int = 0) {
-    packageCreateds(
-      where: { pkg_isActive: true }
-      first: $first
-      skip: $skip
-      orderBy: pkg_id
-      orderDirection: asc
-    ) {
-      id
-      internal_id
-      pkg_id
-      pkg_durationYears
-      pkg_apr
-      pkg_monthlyPrincipalReturnPercent
-      pkg_monthlyUnstake
-      pkg_isActive
-      pkg_monthlyAPRClaimable
-      pkg_minStakeAmount
-      pkg_compositions
-      blockTimestamp
-    }
-  }
-`;
-
+// Package queries updated to match schema
 export const GET_PACKAGE_BY_ID = gql`
-  query GetPackageById($pkgId: Int!) {
+  query GetPackageById($internal_id: BigInt!) {
     packageCreateds(
-      where: { pkg_id: $pkgId }
+      where: { internal_id: $internal_id }
       first: 1
       orderBy: blockTimestamp
       orderDirection: desc
     ) {
       id
       internal_id
-      pkg_id
-      pkg_durationYears
-      pkg_apr
-      pkg_monthlyPrincipalReturnPercent
-      pkg_monthlyUnstake
-      pkg_isActive
-      pkg_monthlyAPRClaimable
-      pkg_minStakeAmount
-      pkg_compositions
+      durationYears
+      apr
+      monthlyUnstake
+      isActive
+      minStakeAmount
+      monthlyPrincipalReturnPercent
+      monthlyAPRClaimable
       blockNumber
       blockTimestamp
       transactionHash
@@ -812,7 +833,7 @@ export const GET_REFERRAL_ANALYTICS = gql`
 
 export const GET_STAR_LEVEL_ANALYTICS = gql`
   query GetStarLevelAnalytics($user: Bytes!, $first: Int = 1000) {
-    starLevelUpgradeds(
+    starLevelUpdateds(
       where: { user: $user }
       first: $first
       orderBy: blockTimestamp
@@ -835,16 +856,164 @@ export const GET_STAR_LEVEL_ANALYTICS = gql`
       blockTimestamp
     }
 
-    starRewardClaimedBreakdowns(
+    starRewardDistributeds(
       where: { user: $user }
       first: $first
       orderBy: blockTimestamp
       orderDirection: desc
     ) {
       id
-      totalClaimed
-      levelRewards
-      isGoldenReward
+      level
+      amount
+      blockTimestamp
+    }
+  }
+`;
+
+// Golden Star Analytics
+export const GET_GOLDEN_STAR_ANALYTICS = gql`
+  query GetGoldenStarAnalytics($user: Bytes!, $first: Int = 1000) {
+    goldenStarActivateds(
+      where: { user: $user }
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      activatedAt
+      blockTimestamp
+    }
+
+    goldenStarRewardDistributeds(
+      where: { user: $user }
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      amount
+      cumulative
+      cap
+      blockTimestamp
+    }
+
+    goldenStarRewardClaimeds(
+      where: { user: $user }
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      amount
+      blockTimestamp
+    }
+  }
+`;
+
+// System-wide analytics
+export const GET_SYSTEM_WIDE_ANALYTICS = gql`
+  query GetSystemWideAnalytics($first: Int = 1000) {
+    # Package events
+    packageCreateds(
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      internal_id
+      blockTimestamp
+    }
+
+    packageUpdateds(
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      internal_id
+      blockTimestamp
+    }
+
+    # System events
+    pauseds(first: $first, orderBy: blockTimestamp, orderDirection: desc) {
+      id
+      account
+      blockTimestamp
+    }
+
+    unpauseds(first: $first, orderBy: blockTimestamp, orderDirection: desc) {
+      id
+      account
+      blockTimestamp
+    }
+
+    ownershipTransferreds(
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      previousOwner
+      newOwner
+      blockTimestamp
+    }
+
+    upgradeds(first: $first, orderBy: blockTimestamp, orderDirection: desc) {
+      id
+      implementation
+      blockTimestamp
+    }
+
+    starTierExecutorUpdateds(
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      newExecutor
+      blockTimestamp
+    }
+
+    initializeds(first: $first, orderBy: blockTimestamp, orderDirection: desc) {
+      id
+      version
+      blockTimestamp
+    }
+
+    starLevelRequirementsUpdateds(
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      levelOneRequirement
+      subLevelRequirement
+      maxStarLevel
+      blockTimestamp
+    }
+
+    goldenStarConfigUpdateds(
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      minReferrals
+      timeWindow
+      rewardPercent
+      rewardDuration
+      rewardCapMultiplier
+      blockTimestamp
+    }
+
+    validCompositionAddeds(
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      internal_id
+      composition
       blockTimestamp
     }
   }
