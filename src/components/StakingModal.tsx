@@ -17,7 +17,9 @@ const StakingModal: React.FC<StakingModalProps> = ({
   const [referrer] = useState(() => {
     const referrer = localStorage.getItem("yearn_together_referral");
     if (!referrer) {
-      return "0x0000000000000000000000000000000000000000";
+      return {
+        referrerAddress: "0xD2Dd094539cfF0F279078181E43A47fC9764aC0D",
+      };
     }
     return JSON.parse(referrer);
   });
