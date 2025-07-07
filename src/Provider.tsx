@@ -12,10 +12,10 @@ import "react-toastify/dist/ReactToastify.css";
 export const Provider = () => {
   return (
     <AppKitProvider>
-      <ThemeProvider>
-        <WalletProvider>
-          <ReferralProvider>
-            <GraphQLProvider>
+      <GraphQLProvider>
+        <ThemeProvider>
+          <WalletProvider>
+            <ReferralProvider>
               <App />
               <ToastContainer
                 position="top-right"
@@ -29,10 +29,10 @@ export const Provider = () => {
                 pauseOnHover
                 theme="dark"
               />
-            </GraphQLProvider>
-          </ReferralProvider>
-        </WalletProvider>
-      </ThemeProvider>
+            </ReferralProvider>
+          </WalletProvider>
+        </ThemeProvider>
+      </GraphQLProvider>
     </AppKitProvider>
   );
 };

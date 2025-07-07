@@ -276,6 +276,50 @@ export const useClaimReferralRewards = () => {
   };
 };
 
+// Claim Golden Star Rewards function
+export const useClaimGoldenStarRewards = () => {
+  const chainId = useChainId();
+
+  const { data: hash, isPending, error, writeContract } = useWriteContract();
+  const { isSuccess } = useTransactionReceipt(hash);
+  const claimGoldenStarRewards = useCallback(async () => {
+    return writeContract({
+      ...baseContractConfig(chainId),
+      functionName: "claimGoldenStarRewards",
+    });
+  }, [writeContract, chainId]);
+
+  return {
+    claimGoldenStarRewards,
+    hash,
+    isPending,
+    isSuccess,
+    error,
+  };
+};
+
+// Claim Star Rewards function
+export const useClaimStarLevelRewards = () => {
+  const chainId = useChainId();
+
+  const { data: hash, isPending, error, writeContract } = useWriteContract();
+  const { isSuccess } = useTransactionReceipt(hash);
+  const claimStarLevelRewards = useCallback(async () => {
+    return writeContract({
+      ...baseContractConfig(chainId),
+      functionName: "claimStarLevelRewards",
+    });
+  }, [writeContract, chainId]);
+
+  return {
+    claimStarLevelRewards,
+    hash,
+    isPending,
+    error,
+    isSuccess,
+  };
+};
+
 // Activate Golden Star function
 export const useActivateGoldenStar = () => {
   const chainId = useChainId();

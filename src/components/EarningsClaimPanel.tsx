@@ -1,7 +1,11 @@
 import { DollarSign, Star, Award, Clock, TrendingUp, Zap } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
-import { useClaimReferralRewards } from "../web3/WriteContract/useYearnTogetherWrite";
+import {
+  useClaimGoldenStarRewards,
+  useClaimReferralRewards,
+  useClaimStarLevelRewards,
+} from "../web3/WriteContract/useYearnTogetherWrite";
 
 const EarningsClaimPanel: React.FC = () => {
   const [claimingType, setClaimingType] = useState<string | null>(null);
@@ -11,11 +15,45 @@ const EarningsClaimPanel: React.FC = () => {
     isSuccess: isClaimingReferralRewardsSuccess,
   } = useClaimReferralRewards();
 
+  const {
+    claimStarLevelRewards,
+    isSuccess: isClaimingStarLevelRewardsSuccess,
+    error: claimStarLevelRewardsError,
+  } = useClaimStarLevelRewards();
+
+  const {
+    claimGoldenStarRewards,
+    isSuccess: isClaimingGoldenStarRewardsSuccess,
+    error: claimGoldenStarRewardsError,
+  } = useClaimGoldenStarRewards();
+
   useEffect(() => {
-    if (claimReferralRewardsError || isClaimingReferralRewardsSuccess) {
+    console.log({
+      claimReferralRewardsError,
+      isClaimingReferralRewardsSuccess,
+      isClaimingGoldenStarRewardsSuccess,
+      isClaimingStarLevelRewardsSuccess,
+      claimGoldenStarRewardsError,
+      claimStarLevelRewardsError,
+    });
+    if (
+      claimReferralRewardsError ||
+      isClaimingReferralRewardsSuccess ||
+      isClaimingGoldenStarRewardsSuccess ||
+      isClaimingStarLevelRewardsSuccess ||
+      claimGoldenStarRewardsError ||
+      claimStarLevelRewardsError
+    ) {
       setClaimingType(null);
     }
-  }, [claimReferralRewardsError, isClaimingReferralRewardsSuccess]);
+  }, [
+    claimReferralRewardsError,
+    isClaimingReferralRewardsSuccess,
+    isClaimingGoldenStarRewardsSuccess,
+    isClaimingStarLevelRewardsSuccess,
+    claimGoldenStarRewardsError,
+    claimStarLevelRewardsError,
+  ]);
 
   const earnings = [
     {
@@ -41,8 +79,8 @@ const EarningsClaimPanel: React.FC = () => {
     {
       type: "golden",
       title: "Golden Star Earnings",
-      amount: 0,
-      available: 0,
+      amount: 100,
+      available: 100,
       nextClaim: null,
       icon: Award,
       color: "yellow",
@@ -54,6 +92,12 @@ const EarningsClaimPanel: React.FC = () => {
     if (type === "referral") {
       setClaimingType(type);
       await claimReferralRewards();
+    } else if (type === "star") {
+      setClaimingType(type);
+      await claimStarLevelRewards();
+    } else if (type === "golden") {
+      setClaimingType(type);
+      await claimGoldenStarRewards();
     }
   };
 

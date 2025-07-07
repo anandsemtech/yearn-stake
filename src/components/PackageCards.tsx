@@ -1,12 +1,4 @@
-import {
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  Lock,
-  Unlock,
-  Zap,
-  Clock,
-} from "lucide-react";
+import { Calendar, Lock } from "lucide-react";
 import React, { useMemo } from "react";
 
 import { getColorClasses, getTagColor } from "../common/helper";
@@ -17,8 +9,20 @@ import {
   useGraphQLQuery,
 } from "../graphql";
 
+import ActivePackages from "./ActivePackages";
+
+export interface PackageData {
+  id: string;
+  name: string;
+  durationYears: number;
+  minAmount: number;
+  apy: number;
+  color: string;
+  tag?: string;
+}
+
 interface PackageCardsProps {
-  onStakePackage: (packageData: any) => void;
+  onStakePackage: (packageData: PackageData) => void;
 }
 
 const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
@@ -37,8 +41,9 @@ const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
       !packagesCreated ||
       packagesCreatedError ||
       !packagesCreated?.packageCreateds
-    )
+    ) {
       return [];
+    }
     return packagesCreated.packageCreateds.map((stake) => {
       return {
         id: stake.internal_id,
@@ -62,12 +67,6 @@ const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
   const handleClaimAPR = async (packageId: string) => {
     // Mock claim APR process
     console.log("Claiming APR for package:", packageId);
-  };
-
-  const getNextClaimDate = (startDate: Date) => {
-    const nextClaim = new Date(startDate);
-    nextClaim.setMonth(nextClaim.getMonth() + 1);
-    return nextClaim;
   };
 
   return (
@@ -183,139 +182,11 @@ const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
       </div>
 
       {/* Active Packages */}
-      {user?.activePackages && user.activePackages.length > 0 && (
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-            Active Packages
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {user.activePackages.map((pkg) => {
-              const nextClaimDate = getNextClaimDate(pkg.startDate);
-              const canClaim = nextClaimDate <= new Date();
-              const monthlyAPR = (pkg.amount * pkg.apy) / 100 / 12;
-              const monthlyPrincipal = pkg.amount / (pkg.duration * 12);
-
-              return (
-                <div
-                  key={pkg.id}
-                  className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
-                      {pkg.name}
-                    </h3>
-                    <div className="flex items-center space-x-2">
-                      <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full text-xs font-medium">
-                        {pkg.status}
-                      </span>
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <DollarSign className="w-4 h-4 text-blue-500" />
-                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Staked Amount
-                        </span>
-                      </div>
-                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                        ${pkg.amount.toLocaleString()}
-                      </div>
-                    </div>
-
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          APY
-                        </span>
-                      </div>
-                      <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                        {pkg.apy}%
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 mb-6">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Monthly APR
-                      </span>
-                      <span className="font-semibold text-green-600 dark:text-green-400">
-                        ${monthlyAPR.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Monthly Unstake Principal
-                      </span>
-                      <span className="font-semibold text-blue-600 dark:text-blue-400">
-                        ${monthlyPrincipal.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        End Date
-                      </span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {pkg.endDate.toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Next Claim
-                      </span>
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        <span
-                          className={`font-medium ${
-                            canClaim
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-gray-700 dark:text-gray-300"
-                          }`}
-                        >
-                          {canClaim
-                            ? "Available now"
-                            : nextClaimDate.toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => handleClaimAPR(pkg.id)}
-                      disabled={!canClaim}
-                      className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed font-medium ${
-                        canClaim
-                          ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700"
-                          : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                      }`}
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span>
-                        {canClaim
-                          ? `Claim $${monthlyAPR.toFixed(2)}`
-                          : "Claim APR"}
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => handleUnstake(pkg.id)}
-                      className="flex items-center justify-center space-x-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all duration-200 transform hover:scale-105 font-medium"
-                    >
-                      <Unlock className="w-4 h-4" />
-                      <span>Unstake</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <ActivePackages
+        activePackages={user?.activePackages || []}
+        onClaimAPR={handleClaimAPR}
+        onUnstake={handleUnstake}
+      />
     </div>
   );
 };

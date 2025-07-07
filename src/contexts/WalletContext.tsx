@@ -2,11 +2,14 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { Address } from "viem";
 import { useAccount, useAccountEffect } from "wagmi";
 
+import { PackageList, useUserStakes } from "../graphql/useUserStakes";
 import { useTokenDetails } from "../web3/ReadContract/useTokenDetails";
 import {
+  useClaimableInterval,
   useGoldenStarConfig,
   useIsGoldenStar,
   useNextPackageId,
+  useReferralEarnings,
   useTokenAddresses,
   useUserStarLevel,
 } from "../web3/ReadContract/useYearnTogetherHooks";
@@ -34,7 +37,7 @@ interface Package {
   apy: number;
   startDate: Date;
   endDate: Date;
-  status: "active" | "completed" | "pending";
+  status: "active" | "inactive";
 }
 
 interface TokenDetails {
@@ -63,10 +66,13 @@ interface GoldenStarConfig {
 interface WalletContextType {
   isConnected: boolean;
   user: User | null;
+  totalReferralEarnings: number;
   tokenDetails: TokenDetails;
   tokenAddresses: TokenAddresses;
   goldenStarConfig: GoldenStarConfig | null;
   nextPackageId: number | null;
+  isUserStakesLoading: boolean;
+  userStakes: PackageList[];
   updateUserProfile: (email: string, phone: string) => void;
 }
 
@@ -101,6 +107,31 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const { data: nextPackageId } = useNextPackageId();
 
+  const { packageList: userStakes, isLoading: isUserStakesLoading } =
+    useUserStakes();
+
+  const { data: yReferralEarnings } = useReferralEarnings(
+    address as Address,
+    yYearnAddress as Address
+  );
+
+  const { data: sReferralEarnings } = useReferralEarnings(
+    address as Address,
+    sYearnAddress as Address
+  );
+
+  const { data: pReferralEarnings } = useReferralEarnings(
+    address as Address,
+    pYearnAddress as Address
+  );
+
+  const totalReferralEarnings =
+    (yReferralEarnings as number) +
+    (sReferralEarnings as number) +
+    (pReferralEarnings as number);
+
+  const { data: claimableInterval } = useClaimableInterval();
+
   useAccountEffect({
     onConnect: () => {},
     onDisconnect: () => {
@@ -118,6 +149,29 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
 
     return () => clearInterval(interval);
   }, [refetchTokenDetails]);
+
+  useEffect(() => {
+    if (userStakes && claimableInterval) {
+      setUser((prevUser) => {
+        if (!prevUser) return null;
+        return {
+          ...prevUser,
+          activePackages: userStakes.map((p: PackageList) => ({
+            id: p.internal_id,
+            name: p.internal_id,
+            duration: p.durationYears,
+            amount: p.totalStaked,
+            apy: p.apr,
+            startDate: new Date(Number(p.blockTimestamp) * 1000),
+            endDate: new Date(
+              (Number(p.blockTimestamp) + Number(claimableInterval)) * 1000
+            ),
+            status: p.isActive ? "active" : "inactive",
+          })),
+        };
+      });
+    }
+  }, [userStakes, claimableInterval]);
 
   useEffect(() => {
     if (address) {
@@ -180,6 +234,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         isConnected,
         user,
+        totalReferralEarnings,
         tokenDetails: {
           balance: Number(detail.balance),
           allowance: Number(detail.allowance),
@@ -195,6 +250,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
         },
         goldenStarConfig,
         nextPackageId: nextPackageId as number,
+        isUserStakesLoading,
+        userStakes,
         updateUserProfile,
       }}
     >

@@ -5,8 +5,7 @@ import { useWallet } from "../contexts/WalletContext";
 import EarningsClaimPanel from "./EarningsClaimPanel";
 import EventLogs from "./EventLogs";
 import LeaderBoard from "./LeaderBoard";
-import PackageCards from "./PackageCards";
-import ReferralTest from "./ReferralTest";
+import PackageCards, { PackageData } from "./PackageCards";
 import StakingModal from "./StakingModal";
 import StarLevelProgress from "./StarLevelProgress";
 import StatsOverview from "./StatsOverview";
@@ -21,10 +20,12 @@ export interface Package {
 
 const Dashboard: React.FC = () => {
   const [showStakingModal, setShowStakingModal] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(
+    null
+  );
   const { user } = useWallet();
 
-  const handleStakePackage = (packageData: Package) => {
+  const handleStakePackage = (packageData: PackageData) => {
     setSelectedPackage(packageData);
     setShowStakingModal(true);
   };
@@ -63,7 +64,7 @@ const Dashboard: React.FC = () => {
           <EarningsClaimPanel />
 
           {/* Referral Test Component */}
-          <ReferralTest />
+          {/* <ReferralTest /> */}
 
           {/* Star Level Progress - Featured prominently */}
           <StarLevelProgress

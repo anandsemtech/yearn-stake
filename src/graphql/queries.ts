@@ -1,5 +1,15 @@
 import { gql } from "@apollo/client";
 
+export interface UserStake {
+  id: string;
+  user: string;
+  packageId: string;
+  amount: string;
+  blockNumber: string;
+  blockTimestamp: string;
+  transactionHash: string;
+}
+
 // User and Staking Related Queries
 export const GET_USER_STAKES = gql`
   query GetUserStakes($user: Bytes!, $first: Int = 100, $skip: Int = 0) {
@@ -247,10 +257,29 @@ export interface PackageCreated {
   transactionHash: string;
 }
 
+export interface PackageCreated {
+  id: string;
+  internal_id: string;
+  durationYears: number;
+  apr: number;
+  isActive: boolean;
+  minStakeAmount: number;
+  monthlyPrincipalReturnPercent: number;
+  monthlyAPRClaimable: boolean;
+  blockNumber: string;
+  blockTimestamp: string;
+  transactionHash: string;
+}
+
 // Package Related Queries - Updated to match schema
 export const GET_PACKAGES_CREATED = gql`
-  query GetPackagesCreated($first: Int = 100, $skip: Int = 0) {
+  query GetPackagesCreated(
+    $where: PackageCreated_filter
+    $first: Int = 100
+    $skip: Int = 0
+  ) {
     packageCreateds(
+      where: $where
       first: $first
       skip: $skip
       orderBy: blockTimestamp

@@ -12,7 +12,7 @@ import {
 import { baseContractConfig, defaultGasLimit } from "../contract";
 import { useTokenAddresses } from "../ReadContract";
 
-import { UseAllowanceAndApprove } from "./useAllowanceAndApprove";
+import { useMultiTokenApprove } from "./useMultiTokenApprove";
 
 export function useApproveAndProcess() {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
@@ -21,7 +21,11 @@ export function useApproveAndProcess() {
   const chainId = useChainId();
   const { address } = useAccount();
   const { yYearnAddress, sYearnAddress, pYearnAddress } = useTokenAddresses();
-  const { approve, isPending: isApproving } = UseAllowanceAndApprove("yYearn");
+  const {
+    multiTokenApprove,
+    allConfirmed,
+    anyLoading: isApproving,
+  } = useMultiTokenApprove();
   const { isPending, isError, error, failureReason, writeContractAsync } =
     useWriteContract();
 
@@ -41,9 +45,26 @@ export function useApproveAndProcess() {
     }) => {
       try {
         const { packageId, amounts, referrer } = args;
-        const amountBigInt = parseUnits(amounts[0], 18);
+        const amountBigInt = amounts.map((amount) => parseUnits(amount, 18));
 
-        await approve(amountBigInt);
+        // Prepare token list for multi-token approval
+        const tokenList = [
+          {
+            address: yYearnAddress as `0x${string}`,
+            amount: amountBigInt[0],
+          },
+          {
+            address: sYearnAddress as `0x${string}`,
+            amount: amountBigInt[1],
+          },
+          {
+            address: pYearnAddress as `0x${string}`,
+            amount: amountBigInt[2],
+          },
+        ];
+
+        // Wait for all token approvals to be confirmed
+        await multiTokenApprove(tokenList);
 
         const result = await publicClient?.estimateContractGas({
           account: address,
@@ -71,10 +92,20 @@ export function useApproveAndProcess() {
         });
         setTxHash(tx);
       } catch (error) {
+        toast.error(error as string);
         console.error(error);
       }
     },
-    [approve, publicClient, address, chainId, writeContractAsync]
+    [
+      multiTokenApprove,
+      publicClient,
+      address,
+      chainId,
+      yYearnAddress,
+      sYearnAddress,
+      pYearnAddress,
+      writeContractAsync,
+    ]
   );
 
   return {
@@ -84,5 +115,6 @@ export function useApproveAndProcess() {
     stakeError: error || result.error,
     stakeFailureReason: failureReason || result.failureReason,
     isStakeSuccess: result.isSuccess,
+    allApprovalsConfirmed: allConfirmed,
   };
 }
