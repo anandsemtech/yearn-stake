@@ -65,7 +65,7 @@ export function useApproveAndProcess() {
 
         // Wait for all token approvals to be confirmed
         await multiTokenApprove(tokenList);
-
+        console.log("All approvals confirmed", allConfirmed);
         const result = await publicClient?.estimateContractGas({
           account: address,
           ...baseContractConfig(chainId),
