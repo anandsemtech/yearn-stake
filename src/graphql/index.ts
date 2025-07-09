@@ -12,5 +12,12 @@ export {
   useGraphQLLoading,
 } from "./hooks";
 
+// Export Custom Hooks
+export { useUserStakes } from "./useUserStakes";
+export { useUserAllRewards } from "./useUserAllRewards";
+
+// Export Types
+export * from "./types";
+
 // Export Queries and Mutations
 export * from "./queries";

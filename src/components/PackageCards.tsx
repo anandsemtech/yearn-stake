@@ -2,12 +2,8 @@ import { Calendar, Lock } from "lucide-react";
 import React, { useMemo } from "react";
 
 import { getColorClasses, getTagColor } from "../common/helper";
+import { useAppContext } from "../contexts/hooks/useAppContext";
 import { useWallet } from "../contexts/WalletContext";
-import {
-  GET_PACKAGES_CREATED,
-  PackageCreated,
-  useGraphQLQuery,
-} from "../graphql";
 
 import ActivePackages from "./ActivePackages";
 
@@ -28,23 +24,13 @@ interface PackageCardsProps {
 const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
   const { user } = useWallet();
 
-  const {
-    data: packagesCreated,
-    loading: packagesCreatedLoading,
-    error: packagesCreatedError,
-  } = useGraphQLQuery<{
-    packageCreateds: Array<PackageCreated>;
-  }>(GET_PACKAGES_CREATED);
+  const { activePackages, isActivePackagesLoading } = useAppContext();
 
   const availablePackages = useMemo(() => {
-    if (
-      !packagesCreated ||
-      packagesCreatedError ||
-      !packagesCreated?.packageCreateds
-    ) {
+    if (!activePackages || isActivePackagesLoading || !activePackages.length) {
       return [];
     }
-    return packagesCreated.packageCreateds.map((stake) => {
+    return activePackages.map((stake) => {
       return {
         id: stake.internal_id,
         name: `Package ${stake.durationYears}`,
@@ -57,7 +43,7 @@ const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
         tag: "Popular",
       };
     });
-  }, [packagesCreatedError, packagesCreated]);
+  }, [activePackages, isActivePackagesLoading]);
 
   const handleUnstake = async (packageId: string) => {
     // Mock unstake process
@@ -76,7 +62,7 @@ const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
           Available Packages
         </h2>
-        {packagesCreatedLoading ? (
+        {isActivePackagesLoading ? (
           <div className="flex items-center justify-center p-8">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 dark:border-gray-600 border-t-blue-500 dark:border-t-blue-400"></div>
             <span className="ml-3 text-gray-600 dark:text-gray-300">

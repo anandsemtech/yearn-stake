@@ -1,29 +1,26 @@
 import { gql } from "@apollo/client";
 
-export interface UserStake {
-  id: string;
-  user: string;
-  packageId: string;
-  amount: string;
-  blockNumber: string;
-  blockTimestamp: string;
-  transactionHash: string;
-}
-
 // User and Staking Related Queries
 export const GET_USER_STAKES = gql`
-  query GetUserStakes($user: Bytes!, $first: Int = 100, $skip: Int = 0) {
+  query GetUserStakes(
+    $user: Bytes!
+    $first: Int = 100
+    $skip: Int = 0
+    $orderBy: String = "blockTimestamp"
+    $orderDirection: String = "desc"
+  ) {
     stakeds(
       where: { user: $user }
       first: $first
       skip: $skip
-      orderBy: blockTimestamp
-      orderDirection: desc
+      orderBy: $orderBy
+      orderDirection: $orderDirection
     ) {
       id
       user
       packageId
       amount
+      stakeIndex
       blockNumber
       blockTimestamp
       transactionHash
@@ -64,6 +61,55 @@ export const GET_USER_CLAIMS = gql`
       user
       stakeIndex
       reward
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+// APR Claims
+export const GET_USER_APR_CLAIMS = gql`
+  query GetUserAPRClaims($user: Bytes!, $first: Int = 100, $skip: Int = 0) {
+    aprclaimeds(
+      where: { user: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      user
+      stakeIndex
+      packageId
+      baseAPR
+      netReward
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+export const GET_APR_CLAIMS_BY_PACKAGE = gql`
+  query GetAPRClaimsByPackage(
+    $packageId: Int!
+    $first: Int = 100
+    $skip: Int = 0
+  ) {
+    aprclaimeds(
+      where: { packageId: $packageId }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      user
+      stakeIndex
+      packageId
+      baseAPR
+      netReward
       blockNumber
       blockTimestamp
       transactionHash
@@ -192,6 +238,52 @@ export const GET_USER_GOLDEN_STAR_REWARDS_CLAIMED = gql`
 `;
 
 // Referral Related Queries
+export const GET_USER_REFERRAL_ASSIGNMENTS = gql`
+  query GetUserReferralAssignments(
+    $user: Bytes!
+    $first: Int = 100
+    $skip: Int = 0
+  ) {
+    referralAssigneds(
+      where: { user: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      user
+      referrer
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+export const GET_REFERRER_ASSIGNMENTS = gql`
+  query GetReferrerAssignments(
+    $referrer: Bytes!
+    $first: Int = 100
+    $skip: Int = 0
+  ) {
+    referralAssigneds(
+      where: { referrer: $referrer }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      user
+      referrer
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
 export const GET_USER_REFERRAL_REWARDS_DISTRIBUTED = gql`
   query GetUserReferralRewardsDistributed(
     $referrer: Bytes!
@@ -209,6 +301,26 @@ export const GET_USER_REFERRAL_REWARDS_DISTRIBUTED = gql`
       referrer
       level
       amount
+      rewardToken
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+export const GET_REFERRAL_REWARD_TIERS_UPDATES = gql`
+  query GetReferralRewardTiersUpdates($first: Int = 100, $skip: Int = 0) {
+    referralRewardTiersUpdateds(
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      startLevel
+      endLevel
+      rewardPercent
       rewardToken
       blockNumber
       blockTimestamp
@@ -241,35 +353,6 @@ export const GET_USER_REFERRAL_REWARDS_CLAIMED = gql`
     }
   }
 `;
-
-export interface PackageCreated {
-  id: string;
-  internal_id: string;
-  durationYears: number;
-  apr: number;
-  isActive: boolean;
-  minStakeAmount: number;
-  monthlyPrincipalReturnPercent: number;
-  monthlyAPRClaimable: boolean;
-  monthlyUnstake: boolean;
-  blockNumber: string;
-  blockTimestamp: string;
-  transactionHash: string;
-}
-
-export interface PackageCreated {
-  id: string;
-  internal_id: string;
-  durationYears: number;
-  apr: number;
-  isActive: boolean;
-  minStakeAmount: number;
-  monthlyPrincipalReturnPercent: number;
-  monthlyAPRClaimable: boolean;
-  blockNumber: string;
-  blockTimestamp: string;
-  transactionHash: string;
-}
 
 // Package Related Queries - Updated to match schema
 export const GET_PACKAGES_CREATED = gql`
@@ -469,6 +552,41 @@ export const GET_STAR_LEVEL_REQUIREMENTS_UPDATES = gql`
       id
       levelOneRequirement
       subLevelRequirement
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+// Star Level Tiers Updates
+export const GET_STAR_LEVEL_TIERS_UPDATES = gql`
+  query GetStarLevelTiersUpdates($first: Int = 100, $skip: Int = 0) {
+    starLevelTiersUpdateds(
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      newMaxStarLevel
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+// Max Star Level Updates
+export const GET_MAX_STAR_LEVEL_UPDATES = gql`
+  query GetMaxStarLevelUpdates($first: Int = 100, $skip: Int = 0) {
+    maxStarLevelUpdateds(
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
       maxStarLevel
       blockNumber
       blockTimestamp
@@ -531,6 +649,7 @@ export const GET_USER_DASHBOARD_DATA = gql`
       id
       packageId
       amount
+      stakeIndex
       blockTimestamp
     }
 
@@ -593,6 +712,7 @@ export const GET_SYSTEM_ANALYTICS = gql`
     totalStakes: stakeds(first: $first) {
       id
       amount
+      stakeIndex
       blockTimestamp
     }
 
@@ -654,6 +774,7 @@ export const GET_EVENTS_BY_DATE_RANGE = gql`
       user
       packageId
       amount
+      stakeIndex
       blockTimestamp
     }
 
@@ -705,6 +826,7 @@ export const GET_PACKAGE_STAKES = gql`
       user
       packageId
       amount
+      stakeIndex
       blockNumber
       blockTimestamp
       transactionHash
@@ -739,6 +861,7 @@ export const GET_TRANSACTION_BY_HASH = gql`
       user
       packageId
       amount
+      stakeIndex
       blockTimestamp
     }
     unstakeds(where: { transactionHash: $transactionHash }) {
@@ -801,6 +924,7 @@ export const GET_USER_STAKE_SUMMARY = gql`
       id
       packageId
       amount
+      stakeIndex
       blockTimestamp
     }
 
@@ -1044,6 +1168,109 @@ export const GET_SYSTEM_WIDE_ANALYTICS = gql`
       internal_id
       composition
       blockTimestamp
+    }
+  }
+`;
+
+// Comprehensive User Rewards Query
+export const GET_USER_ALL_REWARDS = gql`
+  query GetUserAllRewards($user: Bytes!, $first: Int = 100, $skip: Int = 0) {
+    goldenStarRewardClaimeds(
+      where: { user: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      user
+      amount
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+
+    goldenStarRewardDistributeds(
+      where: { user: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      user
+      amount
+      cumulative
+      cap
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+
+    referralRewardDistributeds(
+      where: { referrer: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      referrer
+      level
+      amount
+      rewardToken
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+
+    referralRewardsClaimeds(
+      where: { user: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      user
+      yAmount
+      sAmount
+      pAmount
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+
+    starRewardClaimeds(
+      where: { user: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      amount
+      blockNumber
+      blockTimestamp
+      id
+      level
+      transactionHash
+      user
+    }
+
+    starRewardDistributeds(
+      where: { user: $user }
+      first: $first
+      skip: $skip
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      amount
+      blockNumber
+      blockTimestamp
+      id
+      level
+      transactionHash
+      user
     }
   }
 `;

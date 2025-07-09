@@ -1,23 +1,15 @@
 import { createColumnHelper } from "@tanstack/react-table";
 import { DollarSign, TrendingUp, Unlock, Zap, Clock } from "lucide-react";
+import { formatEther } from "viem";
 
-interface Package {
-  id: string;
-  name: string;
-  duration: number;
-  amount: number;
-  apy: number;
-  startDate: Date;
-  endDate: Date;
-  status: "active" | "inactive";
-}
+import { ActivePackage } from "../contexts/WalletContext";
 
 interface ActivePackagesColumnsProps {
   onClaimAPR: (packageId: string) => void;
   onUnstake: (packageId: string) => void;
 }
 
-const columnHelper = createColumnHelper<Package>();
+const columnHelper = createColumnHelper<ActivePackage>();
 
 export const useActivePackagesColumns = ({
   onClaimAPR,
@@ -44,7 +36,7 @@ export const useActivePackagesColumns = ({
         <div className="flex items-center space-x-2">
           <DollarSign className="w-4 h-4 text-blue-500" />
           <span className="font-semibold text-blue-600 dark:text-blue-400">
-            ${getValue().toLocaleString()}
+            ${formatEther(getValue() as unknown as bigint)}
           </span>
         </div>
       ),

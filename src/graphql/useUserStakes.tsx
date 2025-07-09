@@ -1,25 +1,14 @@
 import { useEffect, useState } from "react";
-import { Address, formatEther } from "viem";
+import { Address } from "viem";
 import { useAccount } from "wagmi";
 
-import { GET_PACKAGES_CREATED, PackageCreated, UserStake } from "./queries";
+import { GET_PACKAGES_CREATED } from "./queries";
+import { PackageCreated, UserStake } from "./types";
 
 import { GET_USER_STAKES, useGraphQLQuery } from ".";
 
-export interface PackageList {
+export interface PackageList extends PackageCreated, UserStake {
   totalStaked: number;
-  id: string;
-  user: string;
-  packageId: string;
-  amount: string;
-  blockNumber: string;
-  blockTimestamp: string;
-  transactionHash: string;
-  internal_id?: string;
-  durationYears?: number;
-  apr?: number;
-  isActive?: boolean;
-  monthlyUnstake?: boolean;
 }
 
 export const useUserStakes = () => {
@@ -31,6 +20,8 @@ export const useUserStakes = () => {
   }>(GET_USER_STAKES, {
     variables: {
       user: address as Address,
+      orderBy: "blockTimestamp",
+      orderDirection: "desc",
     },
     skip: !address,
   });
@@ -49,20 +40,21 @@ export const useUserStakes = () => {
 
   useEffect(() => {
     if (packageDetails && userStakes?.stakeds.length) {
-      const packageList = userStakes?.stakeds.map((stake) => {
-        const pkg = packageDetails.packageCreateds.find(
-          (p) => Number(p.internal_id) === Number(stake.packageId)
-        );
-        return {
-          ...pkg,
-          ...stake,
-          apr: pkg?.apr ? pkg.apr / 100 : 0,
-          totalStaked: stake.amount
-            ? Number(formatEther(stake.amount as unknown as bigint))
-            : 0,
-        };
-      });
-      setPackageList(packageList || []);
+      const packageList = userStakes?.stakeds
+        .map((stake) => {
+          const pkg = packageDetails.packageCreateds.find(
+            (p) => Number(p.internal_id) === Number(stake.packageId)
+          );
+          if (!pkg) return null;
+          return {
+            ...pkg,
+            ...stake,
+            apr: pkg.apr ? pkg.apr / 100 : 0,
+            totalStaked: Number(stake.amount),
+          };
+        })
+        .filter((item): item is PackageList => item !== null);
+      setPackageList(packageList);
     }
   }, [packageDetails, userStakes?.stakeds]);
 

@@ -5,21 +5,12 @@ import {
 } from "@tanstack/react-table";
 import React from "react";
 
+import { ActivePackage } from "../contexts/WalletContext";
+
 import { useActivePackagesColumns } from "./ActivePackagesColumns";
 
-interface Package {
-  id: string;
-  name: string;
-  duration: number;
-  amount: number;
-  apy: number;
-  startDate: Date;
-  endDate: Date;
-  status: "active" | "inactive";
-}
-
 interface ActivePackagesProps {
-  activePackages: Package[];
+  activePackages: ActivePackage[];
   onClaimAPR: (packageId: string) => void;
   onUnstake: (packageId: string) => void;
 }

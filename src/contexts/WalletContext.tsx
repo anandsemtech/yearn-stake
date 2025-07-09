@@ -14,6 +14,17 @@ import {
   useUserStarLevel,
 } from "../web3/ReadContract/useYearnTogetherHooks";
 
+export interface ActivePackage {
+  id: string;
+  name: string;
+  duration: number;
+  amount: number;
+  apy: number;
+  startDate: Date;
+  endDate: Date;
+  status: string;
+}
+
 interface User {
   address: string;
   email: string;
@@ -26,18 +37,7 @@ interface User {
   levelUsers: { [key: number]: number };
   isGoldenStar: boolean;
   goldenStarProgress: number;
-  activePackages: Package[];
-}
-
-interface Package {
-  id: string;
-  name: string;
-  duration: number;
-  amount: number;
-  apy: number;
-  startDate: Date;
-  endDate: Date;
-  status: "active" | "inactive";
+  activePackages: ActivePackage[];
 }
 
 interface TokenDetails {
@@ -151,20 +151,20 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [refetchTokenDetails]);
 
   useEffect(() => {
-    if (userStakes && claimableInterval) {
+    if (userStakes) {
       setUser((prevUser) => {
         if (!prevUser) return null;
         return {
           ...prevUser,
           activePackages: userStakes.map((p: PackageList) => ({
-            id: p.internal_id,
-            name: p.internal_id,
-            duration: p.durationYears,
+            id: p.internal_id || p.id || "",
+            name: p.internal_id || p.id || "",
+            duration: p.durationYears || 0,
             amount: p.totalStaked,
-            apy: p.apr,
+            apy: p.apr || 0,
             startDate: new Date(Number(p.blockTimestamp) * 1000),
             endDate: new Date(
-              (Number(p.blockTimestamp) + Number(claimableInterval)) * 1000
+              (Number(p.blockTimestamp) + Number(p.claimableInterval)) * 1000
             ),
             status: p.isActive ? "active" : "inactive",
           })),
@@ -192,28 +192,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
         },
         isGoldenStar: isUserGoldenStar as boolean,
         goldenStarProgress: (3 / 15) * 100, // 3 out of 15 direct referrals
-        activePackages: [
-          {
-            id: "1",
-            name: "2 Year Package",
-            duration: 2,
-            amount: 5000,
-            apy: 12,
-            startDate: new Date("2024-01-15"),
-            endDate: new Date("2026-01-15"),
-            status: "active",
-          },
-          {
-            id: "2",
-            name: "1 Year Package",
-            duration: 1,
-            amount: 2500,
-            apy: 8,
-            startDate: new Date("2024-03-01"),
-            endDate: new Date("2025-03-01"),
-            status: "active",
-          },
-        ],
+        activePackages: [],
       });
     }
   }, [isConnectedWagmi, address, userStarLevel, isUserGoldenStar]);
