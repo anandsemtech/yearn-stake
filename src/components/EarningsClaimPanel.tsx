@@ -1,6 +1,7 @@
 import { DollarSign, Star, Award, Clock, TrendingUp, Zap } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
+import { useWallet } from "../contexts/hooks/useWallet";
 import {
   useClaimGoldenStarRewards,
   useClaimReferralRewards,
@@ -9,6 +10,11 @@ import {
 
 const EarningsClaimPanel: React.FC = () => {
   const [claimingType, setClaimingType] = useState<string | null>(null);
+  const {
+    totalReferralEarnings,
+    currentStarLevelEarnings,
+    pendingGoldenStarRewards,
+  } = useWallet();
   const {
     claimReferralRewards,
     error: claimReferralRewardsError,
@@ -28,14 +34,6 @@ const EarningsClaimPanel: React.FC = () => {
   } = useClaimGoldenStarRewards();
 
   useEffect(() => {
-    console.log({
-      claimReferralRewardsError,
-      isClaimingReferralRewardsSuccess,
-      isClaimingGoldenStarRewardsSuccess,
-      isClaimingStarLevelRewardsSuccess,
-      claimGoldenStarRewardsError,
-      claimStarLevelRewardsError,
-    });
     if (
       claimReferralRewardsError ||
       isClaimingReferralRewardsSuccess ||
@@ -59,8 +57,8 @@ const EarningsClaimPanel: React.FC = () => {
     {
       type: "referral",
       title: "Referral Earnings",
-      amount: 1250.75,
-      available: 850.25,
+      amount: totalReferralEarnings,
+      available: totalReferralEarnings,
       nextClaim: new Date(),
       icon: TrendingUp,
       color: "blue",
@@ -69,8 +67,8 @@ const EarningsClaimPanel: React.FC = () => {
     {
       type: "star",
       title: "Star Level Earnings",
-      amount: 675.5,
-      available: 675.5,
+      amount: currentStarLevelEarnings,
+      available: currentStarLevelEarnings,
       nextClaim: new Date(),
       icon: Star,
       color: "purple",
@@ -79,8 +77,8 @@ const EarningsClaimPanel: React.FC = () => {
     {
       type: "golden",
       title: "Golden Star Earnings",
-      amount: 100,
-      available: 100,
+      amount: pendingGoldenStarRewards,
+      available: pendingGoldenStarRewards,
       nextClaim: null,
       icon: Award,
       color: "yellow",
@@ -139,7 +137,9 @@ const EarningsClaimPanel: React.FC = () => {
     if (days > 0) return `${days}d ${hours}h`;
     return `${hours}h`;
   };
-
+  console.log({
+    earnings,
+  });
   const totalAvailable = earnings.reduce(
     (sum, earning) => sum + earning.available,
     0

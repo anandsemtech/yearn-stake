@@ -1,7 +1,7 @@
-import { X, Mail, Phone, Save } from 'lucide-react';
-import React, { useState } from 'react';
+import { X, Mail, Phone, Save } from "lucide-react";
+import React, { useState } from "react";
 
-import { useWallet } from '../contexts/WalletContext';
+import { useWallet } from "../contexts/hooks/useWallet";
 
 interface UserSettingsModalProps {
   onClose: () => void;
@@ -9,8 +9,8 @@ interface UserSettingsModalProps {
 
 const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose }) => {
   const { user, updateUserProfile } = useWallet();
-  const [email, setEmail] = useState(user?.email || '');
-  const [phone, setPhone] = useState(user?.phone || '');
+  const [email, setEmail] = useState(user?.email || "");
+  const [phone, setPhone] = useState(user?.phone || "");
 
   const handleSave = () => {
     updateUserProfile(email, phone);
@@ -21,7 +21,9 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose }) => {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">User Settings</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            User Settings
+          </h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

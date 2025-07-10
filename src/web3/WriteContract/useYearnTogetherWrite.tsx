@@ -1,4 +1,5 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
+import { toast } from "react-toastify";
 import { Address, erc20Abi, formatUnits, parseEther } from "viem";
 import {
   useChainId,
@@ -6,9 +7,11 @@ import {
   useReadContract,
   useWaitForTransactionReceipt,
   useAccount,
+  usePublicClient,
 } from "wagmi";
 
-import { useWallet } from "../../contexts/WalletContext";
+import { useWallet } from "../../contexts/hooks/useWallet";
+import { customError } from "../../utils/customError";
 import { baseContractConfig, ASSET_ADDRESS, BASE_CONTRACT } from "../contract";
 
 // Utility function to get token address with fallback
@@ -155,24 +158,85 @@ export const useStake = () => {
 // Unstake function
 export const useUnstake = () => {
   const chainId = useChainId();
+  const {
+    data: hash,
+    isPending,
+    error,
+    isError,
+    writeContract,
+  } = useWriteContract();
+  const {
+    isSuccess,
+    isFetching,
+    isError: isReceiptError,
+    error: receiptError,
+  } = useTransactionReceipt(hash);
 
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
+  const publicClient = usePublicClient();
+
+  useEffect(() => {
+    if (isSuccess) {
+      toast.success(
+        <>
+          Unstake successful{" "}
+          <a
+            href={`https://basescan.org/tx/${hash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            {hash}
+          </a>
+        </>
+      );
+    }
+    if (receiptError || isReceiptError || isError || error) {
+      if (receiptError || isReceiptError) {
+        toast.error(
+          <>
+            Unstake failed{" "}
+            <a
+              href={`https://basescan.org/tx/${hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              {hash}
+            </a>
+          </>
+        );
+      } else {
+        toast.error(`Unstake failed `);
+      }
+    }
+  }, [isSuccess, error, receiptError, isReceiptError, isError, hash]);
 
   const unstake = useCallback(
     async (stakeIndex: number) => {
-      return writeContract({
-        ...baseContractConfig(chainId),
-        functionName: "unstake",
-        args: [BigInt(stakeIndex)],
-      });
+      try {
+        const gasPrice = await publicClient?.estimateContractGas({
+          ...baseContractConfig(chainId),
+          functionName: "unstake",
+          args: [BigInt(stakeIndex)],
+        });
+        return writeContract({
+          ...baseContractConfig(chainId),
+          functionName: "unstake",
+          args: [BigInt(stakeIndex)],
+          gasPrice: gasPrice,
+        });
+      } catch (e) {
+        customError(e as Error);
+      }
     },
-    [writeContract, chainId]
+    [publicClient, chainId, writeContract]
   );
 
   return {
     unstake,
     hash,
-    isPending,
+    isPending: isPending || isFetching,
+    isSuccess,
     error,
   };
 };
@@ -181,69 +245,85 @@ export const useUnstake = () => {
 export const useClaimAPR = () => {
   const chainId = useChainId();
 
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
+  const {
+    data: hash,
+    isPending,
+    error,
+    isError,
+    writeContract,
+  } = useWriteContract();
+  const {
+    isSuccess,
+    isFetching,
+    isError: isReceiptError,
+    error: receiptError,
+  } = useTransactionReceipt(hash);
+
+  const publicClient = usePublicClient();
+
+  useEffect(() => {
+    if (isSuccess) {
+      toast.success(
+        <>
+          Claim APR successful{" "}
+          <a
+            href={`https://basescan.org/tx/${hash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            {hash}
+          </a>
+        </>
+      );
+    }
+    if (receiptError || isReceiptError || isError || error) {
+      if (receiptError || isReceiptError) {
+        toast.error(
+          <>
+            Claim APR failed{" "}
+            <a
+              href={`https://basescan.org/tx/${hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              Click to view on BaseScan
+            </a>
+          </>
+        );
+      } else {
+        toast.error(`Claim APR failed `);
+      }
+    }
+  }, [isSuccess, error, hash, receiptError, isError, isReceiptError]);
 
   const claimAPR = useCallback(
     async (stakeIndex: number) => {
-      return writeContract({
-        ...baseContractConfig(chainId),
-        functionName: "claimAPR",
-        args: [BigInt(stakeIndex)],
-      });
+      try {
+        const gasPrice = await publicClient?.estimateContractGas({
+          ...baseContractConfig(chainId),
+          functionName: "claimAPR",
+          args: [BigInt(stakeIndex)],
+        });
+        return writeContract({
+          ...baseContractConfig(chainId),
+          functionName: "claimAPR",
+          args: [BigInt(stakeIndex)],
+          gasPrice: gasPrice,
+        });
+      } catch (e) {
+        customError(e as Error);
+      }
     },
-    [writeContract, chainId]
+    [publicClient, chainId, writeContract]
   );
 
   return {
     claimAPR,
     hash,
-    isPending,
-    error,
-  };
-};
-
-// Claim Star Reward function
-export const useClaimStarReward = () => {
-  const chainId = useChainId();
-
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
-
-  const claimStarReward = useCallback(
-    async (level: number) => {
-      return writeContract({
-        ...baseContractConfig(chainId),
-        functionName: "claimStarReward",
-        args: [level],
-      });
-    },
-    [writeContract, chainId]
-  );
-
-  return {
-    claimStarReward,
-    hash,
-    isPending,
-    error,
-  };
-};
-
-// Claim All Star Rewards function
-export const useClaimAllStarRewards = () => {
-  const chainId = useChainId();
-
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
-
-  const claimAllStarRewards = useCallback(async () => {
-    return writeContract({
-      ...baseContractConfig(chainId),
-      functionName: "claimAllStarRewards",
-    });
-  }, [writeContract, chainId]);
-
-  return {
-    claimAllStarRewards,
-    hash,
-    isPending,
+    isPending: isPending || isFetching,
+    isSuccess,
     error,
   };
 };
@@ -317,81 +397,6 @@ export const useClaimStarLevelRewards = () => {
     isPending,
     error,
     isSuccess,
-  };
-};
-
-// Activate Golden Star function
-export const useActivateGoldenStar = () => {
-  const chainId = useChainId();
-
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
-
-  const activateGoldenStar = useCallback(
-    async (userAddress: Address) => {
-      return writeContract({
-        ...baseContractConfig(chainId),
-        functionName: "activateGoldenStar",
-        args: [userAddress],
-      });
-    },
-    [writeContract, chainId]
-  );
-
-  return {
-    activateGoldenStar,
-    hash,
-    isPending,
-    error,
-  };
-};
-
-// Downgrade Golden Star function
-export const useDowngradeGoldenStar = () => {
-  const chainId = useChainId();
-
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
-
-  const downgradeGoldenStar = useCallback(
-    async (userAddress: Address) => {
-      return writeContract({
-        ...baseContractConfig(chainId),
-        functionName: "downgradeGoldenStar",
-        args: [userAddress],
-      });
-    },
-    [writeContract, chainId]
-  );
-
-  return {
-    downgradeGoldenStar,
-    hash,
-    isPending,
-    error,
-  };
-};
-
-// Emergency Withdraw function
-export const useEmergencyWithdraw = () => {
-  const chainId = useChainId();
-
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
-
-  const emergencyWithdraw = useCallback(
-    async (stakeIndex: number) => {
-      return writeContract({
-        ...baseContractConfig(chainId),
-        functionName: "emergencyWithdraw",
-        args: [BigInt(stakeIndex)],
-      });
-    },
-    [writeContract, chainId]
-  );
-
-  return {
-    emergencyWithdraw,
-    hash,
-    isPending,
-    error,
   };
 };
 
@@ -566,31 +571,6 @@ export const useSetGoldenStarConfig = () => {
   };
 };
 
-// Set User Star Level function
-export const useSetUserStarLevel = () => {
-  const chainId = useChainId();
-
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
-
-  const setUserStarLevel = useCallback(
-    async (userAddress: Address, level: number) => {
-      return writeContract({
-        ...baseContractConfig(chainId),
-        functionName: "setUserStarLevel",
-        args: [userAddress, level],
-      });
-    },
-    [writeContract, chainId]
-  );
-
-  return {
-    setUserStarLevel,
-    hash,
-    isPending,
-    error,
-  };
-};
-
 // Set Star Tier Executor function
 export const useSetStarTierExecutor = () => {
   const chainId = useChainId();
@@ -610,31 +590,6 @@ export const useSetStarTierExecutor = () => {
 
   return {
     setStarTierExecutor,
-    hash,
-    isPending,
-    error,
-  };
-};
-
-// Set Claimable Interval function
-export const useSetClaimableInterval = () => {
-  const chainId = useChainId();
-
-  const { data: hash, isPending, error, writeContract } = useWriteContract();
-
-  const setClaimableInterval = useCallback(
-    async (intervalInSeconds: bigint) => {
-      return writeContract({
-        ...baseContractConfig(chainId),
-        functionName: "setClaimableInterval",
-        args: [intervalInSeconds],
-      });
-    },
-    [writeContract, chainId]
-  );
-
-  return {
-    setClaimableInterval,
     hash,
     isPending,
     error,
@@ -746,6 +701,143 @@ export const useUpgradeToAndCall = () => {
 
   return {
     upgradeToAndCall,
+    hash,
+    isPending,
+    error,
+  };
+};
+
+// Set Max Referral Level function
+export const useSetMaxReferralLevel = () => {
+  const chainId = useChainId();
+
+  const { data: hash, isPending, error, writeContract } = useWriteContract();
+
+  const setMaxReferralLevel = useCallback(
+    async (level: number) => {
+      return writeContract({
+        ...baseContractConfig(chainId),
+        functionName: "setMaxReferralLevel",
+        args: [level],
+      });
+    },
+    [writeContract, chainId]
+  );
+
+  return {
+    setMaxReferralLevel,
+    hash,
+    isPending,
+    error,
+  };
+};
+
+// Set Max Star Level function
+export const useSetMaxStarLevel = () => {
+  const chainId = useChainId();
+
+  const { data: hash, isPending, error, writeContract } = useWriteContract();
+
+  const setMaxStarLevel = useCallback(
+    async (maxStarLevel: number) => {
+      return writeContract({
+        ...baseContractConfig(chainId),
+        functionName: "setMaxStarLevel",
+        args: [maxStarLevel],
+      });
+    },
+    [writeContract, chainId]
+  );
+
+  return {
+    setMaxStarLevel,
+    hash,
+    isPending,
+    error,
+  };
+};
+
+// Add Valid Composition function
+export const useAddValidComposition = () => {
+  const chainId = useChainId();
+
+  const { data: hash, isPending, error, writeContract } = useWriteContract();
+
+  const addValidComposition = useCallback(
+    async (composition: number[]) => {
+      return writeContract({
+        ...baseContractConfig(chainId),
+        functionName: "addValidComposition",
+        args: [composition],
+      });
+    },
+    [writeContract, chainId]
+  );
+
+  return {
+    addValidComposition,
+    hash,
+    isPending,
+    error,
+  };
+};
+
+// Upgrade To function
+export const useUpgradeTo = () => {
+  const chainId = useChainId();
+
+  const { data: hash, isPending, error, writeContract } = useWriteContract();
+
+  const upgradeTo = useCallback(
+    async (newImplementation: Address) => {
+      return writeContract({
+        ...baseContractConfig(chainId),
+        functionName: "upgradeTo",
+        args: [newImplementation],
+      });
+    },
+    [writeContract, chainId]
+  );
+
+  return {
+    upgradeTo,
+    hash,
+    isPending,
+    error,
+  };
+};
+
+// Initialize function
+export const useInitialize = () => {
+  const chainId = useChainId();
+
+  const { data: hash, isPending, error, writeContract } = useWriteContract();
+
+  const initialize = useCallback(
+    async (
+      yYearn: Address,
+      sYearn: Address,
+      pYearn: Address,
+      goldenStarConfig: {
+        minReferrals: number;
+        timeWindow: number;
+        rewardPercent: number;
+        rewardDuration: number;
+        rewardCapMultiplier: number;
+      },
+      maxReferralLevel: number
+    ) => {
+      return writeContract({
+        ...baseContractConfig(chainId),
+        functionName: "initialize",
+        args: [yYearn, sYearn, pYearn, goldenStarConfig, maxReferralLevel],
+      });
+    },
+    [writeContract, chainId]
+  );
+
+  return {
+    initialize,
     hash,
     isPending,
     error,

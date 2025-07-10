@@ -13,7 +13,7 @@ import React, { useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 
 import { useTheme } from "../contexts/hooks/useTheme";
-import { useWallet } from "../contexts/WalletContext";
+import { useWallet } from "../contexts/hooks/useWallet";
 
 import ReferralShareModal from "./ReferralShareModal";
 import ReferralStatus from "./ReferralStatus";

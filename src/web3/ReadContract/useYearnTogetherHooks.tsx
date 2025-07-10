@@ -60,7 +60,7 @@ export const useMaxReferralLevel = () => {
   const chainId = useChainId();
   return useReadContract({
     ...baseContractConfig(chainId),
-    functionName: "MAX_REFERRAL_LEVEL",
+    functionName: "maxReferralLevel",
   });
 };
 
@@ -256,7 +256,15 @@ export const useUserStake = (userAddress: Address, stakeIndex: number) => {
   const stakeData = useMemo(() => {
     if (!data) return null;
 
-    const result = data as [bigint, bigint, bigint, bigint, bigint, bigint];
+    const result = data as [
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      boolean
+    ];
     return {
       totalStaked: result[0],
       claimedAPR: result[1],
@@ -264,6 +272,7 @@ export const useUserStake = (userAddress: Address, stakeIndex: number) => {
       startTime: Number(result[3]),
       lastClaimedAt: Number(result[4]),
       packageId: Number(result[5]),
+      isFullyUnstaked: result[6],
     } as UserStake;
   }, [data]);
 
@@ -381,21 +390,32 @@ export const useClaimableStarLevelRewards = (userAddress: Address) => {
 
   const { data, isLoading, error, refetch } = useReadContract({
     ...baseContractConfig(chainId),
-    functionName: "getClaimableStarLevelRewards",
+    functionName: "getPendingStarRewards",
     args: [userAddress],
   });
 
   const rewardsData = useMemo(() => {
     if (!data) return null;
-
-    const result = data as [bigint, bigint[]];
+    console.log({
+      claimableStarLevelRewards: data,
+    });
+    const result = data as bigint[];
     return {
       totalClaimable: result[0],
-      levelClaimables: result[1],
+      levelClaimables: result.slice(1),
     };
   }, [data]);
 
   return { data: rewardsData, isLoading, error, refetch };
+};
+
+export const usePendingGoldenStarRewards = (userAddress: Address) => {
+  const chainId = useChainId();
+  return useReadContract({
+    ...baseContractConfig(chainId),
+    functionName: "getPendingGoldenStarRewards",
+    args: [userAddress],
+  });
 };
 
 // Golden star hooks

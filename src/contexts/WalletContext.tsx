@@ -1,14 +1,16 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { Address } from "viem";
+import React, { createContext, useState, useEffect } from "react";
+import { Address, formatEther } from "viem";
 import { useAccount, useAccountEffect } from "wagmi";
 
 import { PackageList, useUserStakes } from "../graphql/useUserStakes";
 import { useTokenDetails } from "../web3/ReadContract/useTokenDetails";
 import {
   useClaimableInterval,
+  useClaimableStarLevelRewards,
   useGoldenStarConfig,
   useIsGoldenStar,
   useNextPackageId,
+  usePendingGoldenStarRewards,
   useReferralEarnings,
   useTokenAddresses,
   useUserStarLevel,
@@ -23,6 +25,7 @@ export interface ActivePackage {
   startDate: Date;
   endDate: Date;
   status: string;
+  stakeIndex: string;
 }
 
 interface User {
@@ -67,6 +70,8 @@ interface WalletContextType {
   isConnected: boolean;
   user: User | null;
   totalReferralEarnings: number;
+  currentStarLevelEarnings: number;
+  pendingGoldenStarRewards: number;
   tokenDetails: TokenDetails;
   tokenAddresses: TokenAddresses;
   goldenStarConfig: GoldenStarConfig | null;
@@ -76,7 +81,9 @@ interface WalletContextType {
   updateUserProfile: (email: string, phone: string) => void;
 }
 
-const WalletContext = createContext<WalletContextType | undefined>(undefined);
+export const WalletContext = createContext<WalletContextType | undefined>(
+  undefined
+);
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -125,6 +132,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
     pYearnAddress as Address
   );
 
+  const { data: claimableStarLevelRewards } = useClaimableStarLevelRewards(
+    address as Address
+  );
+
+  const { data: pendingGoldenStarRewards } = usePendingGoldenStarRewards(
+    address as Address
+  );
+
   const totalReferralEarnings =
     (yReferralEarnings as number) +
     (sReferralEarnings as number) +
@@ -160,13 +175,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
             id: p.internal_id || p.id || "",
             name: p.internal_id || p.id || "",
             duration: p.durationYears || 0,
-            amount: p.totalStaked,
+            amount: Number(p.totalStaked),
             apy: p.apr || 0,
             startDate: new Date(Number(p.blockTimestamp) * 1000),
             endDate: new Date(
               (Number(p.blockTimestamp) + Number(p.claimableInterval)) * 1000
             ),
             status: p.isActive ? "active" : "inactive",
+            stakeIndex: p.stakeIndex,
           })),
         };
       });
@@ -213,7 +229,21 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         isConnected,
         user,
-        totalReferralEarnings,
+        totalReferralEarnings: Number(
+          totalReferralEarnings
+            ? formatEther(totalReferralEarnings as unknown as bigint)
+            : 0
+        ),
+        currentStarLevelEarnings: Number(
+          claimableStarLevelRewards
+            ? formatEther(claimableStarLevelRewards as unknown as bigint)
+            : 0
+        ),
+        pendingGoldenStarRewards: Number(
+          pendingGoldenStarRewards
+            ? formatEther(pendingGoldenStarRewards as unknown as bigint)
+            : 0
+        ),
         tokenDetails: {
           balance: Number(detail.balance),
           allowance: Number(detail.allowance),
@@ -237,12 +267,4 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
       {children}
     </WalletContext.Provider>
   );
-};
-
-export const useWallet = () => {
-  const context = useContext(WalletContext);
-  if (context === undefined) {
-    throw new Error("useWallet must be used within a WalletProvider");
-  }
-  return context;
 };

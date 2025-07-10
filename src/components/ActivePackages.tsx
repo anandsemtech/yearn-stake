@@ -11,16 +11,10 @@ import { useActivePackagesColumns } from "./ActivePackagesColumns";
 
 interface ActivePackagesProps {
   activePackages: ActivePackage[];
-  onClaimAPR: (packageId: string) => void;
-  onUnstake: (packageId: string) => void;
 }
 
-const ActivePackages: React.FC<ActivePackagesProps> = ({
-  activePackages,
-  onClaimAPR,
-  onUnstake,
-}) => {
-  const columns = useActivePackagesColumns({ onClaimAPR, onUnstake });
+const ActivePackages: React.FC<ActivePackagesProps> = ({ activePackages }) => {
+  const columns = useActivePackagesColumns();
 
   const table = useReactTable({
     data: activePackages,

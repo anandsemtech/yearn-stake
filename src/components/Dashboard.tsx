@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 
-import { useWallet } from "../contexts/WalletContext";
+import { useWallet } from "../contexts/hooks/useWallet";
 
 import EarningsClaimPanel from "./EarningsClaimPanel";
 import EventLogs from "./EventLogs";
 import LeaderBoard from "./LeaderBoard";
 import PackageCards, { PackageData } from "./PackageCards";
 import StakingModal from "./StakingModal";
-import StarLevelProgress from "./StarLevelProgress";
+import { StarLevelProgress } from "./StarLevel";
 import StatsOverview from "./StatsOverview";
 
 export interface Package {

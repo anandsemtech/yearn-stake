@@ -3,7 +3,7 @@ import React, { useMemo } from "react";
 
 import { getColorClasses, getTagColor } from "../common/helper";
 import { useAppContext } from "../contexts/hooks/useAppContext";
-import { useWallet } from "../contexts/WalletContext";
+import { useWallet } from "../contexts/hooks/useWallet";
 
 import ActivePackages from "./ActivePackages";
 
@@ -44,16 +44,6 @@ const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
       };
     });
   }, [activePackages, isActivePackagesLoading]);
-
-  const handleUnstake = async (packageId: string) => {
-    // Mock unstake process
-    console.log("Unstaking package:", packageId);
-  };
-
-  const handleClaimAPR = async (packageId: string) => {
-    // Mock claim APR process
-    console.log("Claiming APR for package:", packageId);
-  };
 
   return (
     <div className="space-y-8">
@@ -168,11 +158,7 @@ const PackageCards: React.FC<PackageCardsProps> = ({ onStakePackage }) => {
       </div>
 
       {/* Active Packages */}
-      <ActivePackages
-        activePackages={user?.activePackages || []}
-        onClaimAPR={handleClaimAPR}
-        onUnstake={handleUnstake}
-      />
+      <ActivePackages activePackages={user?.activePackages || []} />
     </div>
   );
 };
