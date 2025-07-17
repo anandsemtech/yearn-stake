@@ -13,8 +13,8 @@ export {
 } from "./hooks";
 
 // Export Custom Hooks
-export { useUserStakes } from "./useUserStakes";
-export { useUserAllRewards } from "./useUserAllRewards";
+export { useUserStakes } from "./hooks/useUserStakes";
+export { useUserAllRewards } from "./hooks/useUserAllRewards";
 
 // Export Types
 export * from "./types";

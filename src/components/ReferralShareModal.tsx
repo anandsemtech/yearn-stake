@@ -2,7 +2,7 @@ import { Copy, X, UserCheck, UserX } from "lucide-react";
 import React, { useState } from "react";
 import { useAccount } from "wagmi";
 
-import { useReferralContext } from "../contexts/ReferralContext";
+import { useReferralContext } from "../contexts/hooks/useReferralContext";
 
 interface ReferralShareModalProps {
   onClose: () => void;

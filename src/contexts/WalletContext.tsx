@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect } from "react";
 import { Address, formatEther } from "viem";
 import { useAccount, useAccountEffect } from "wagmi";
 
-import { PackageList, useUserStakes } from "../graphql/useUserStakes";
+import { PackageList, useUserStakes } from "../graphql/hooks/useUserStakes";
 import { useTokenDetails } from "../web3/ReadContract/useTokenDetails";
 import {
   useClaimableInterval,

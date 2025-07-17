@@ -1,9 +1,9 @@
 import { Address, formatEther } from "viem";
 import { useAccount } from "wagmi";
 
-import { UserAllRewardsData } from "./types";
-
-import { GET_USER_ALL_REWARDS, useGraphQLQuery } from ".";
+import { useGraphQLQuery } from "../hooks";
+import { GET_USER_ALL_REWARDS } from "../queries";
+import { UserAllRewardsData } from "../types";
 
 export interface UseUserAllRewardsOptions {
   first?: number;

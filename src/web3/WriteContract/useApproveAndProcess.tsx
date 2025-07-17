@@ -66,7 +66,15 @@ export function useApproveAndProcess() {
         // Wait for all token approvals to be confirmed
         await multiTokenApprove(tokenList);
         console.log("All approvals confirmed", allConfirmed);
-        const result = await publicClient?.estimateContractGas({
+        console.log({
+          packageId,
+          yYearnAddress,
+          sYearnAddress,
+          pYearnAddress,
+          amountBigInt,
+          referrer,
+        });
+        const gasEstimated = await publicClient?.estimateContractGas({
           account: address,
           ...baseContractConfig(chainId),
           functionName: "stake",
@@ -77,7 +85,7 @@ export function useApproveAndProcess() {
             referrer,
           ],
         });
-        const estimatedGas = result ?? defaultGasLimit;
+        const estimatedGas = gasEstimated ?? defaultGasLimit;
         const tx = await writeContractAsync({
           account: address,
           ...baseContractConfig(chainId),

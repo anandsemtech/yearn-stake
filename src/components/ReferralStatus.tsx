@@ -1,7 +1,7 @@
 import { UserCheck } from "lucide-react";
 import React from "react";
 
-import { useReferralContext } from "../contexts/ReferralContext";
+import { useReferralContext } from "../contexts/hooks/useReferralContext";
 
 const ReferralStatus: React.FC = () => {
   const { referralData, hasValidReferral } = useReferralContext();

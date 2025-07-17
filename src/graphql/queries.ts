@@ -28,6 +28,25 @@ export const GET_USER_STAKES = gql`
   }
 `;
 
+export const GET_MULTIPLE_USER_STAKES = gql`
+  query GetMultipleUserStakes(
+    $users: [Bytes!]!
+    $first: Int = 100
+    $skip: Int = 0
+  ) {
+    stakeds(where: { user_in: $users }, first: $first, skip: $skip) {
+      id
+      user
+      packageId
+      amount
+      stakeIndex
+      blockNumber
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
 export const GET_USER_UNSTAKES = gql`
   query GetUserUnstakes($user: Bytes!, $first: Int = 100, $skip: Int = 0) {
     unstakeds(

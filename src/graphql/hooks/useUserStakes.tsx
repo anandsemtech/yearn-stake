@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { Address } from "viem";
 import { useAccount } from "wagmi";
 
-import { GET_PACKAGES_CREATED } from "./queries";
-import { PackageCreated, UserStake } from "./types";
-
-import { GET_USER_STAKES, useGraphQLQuery } from ".";
+import { useGraphQLQuery } from "../hooks";
+import { GET_PACKAGES_CREATED, GET_USER_STAKES } from "../queries";
+import { PackageCreated, UserStake } from "../types";
 
 export interface PackageList extends PackageCreated, UserStake {
   totalStaked: number;

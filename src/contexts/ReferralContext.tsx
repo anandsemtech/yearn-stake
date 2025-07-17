@@ -1,9 +1,10 @@
-import React, { createContext, useContext, ReactNode } from "react";
+import React, { createContext, ReactNode } from "react";
 
+import { ReferralAssigned } from "../graphql";
 import { useReferral } from "../hooks/useReferral";
 import { type ReferralData } from "../utils/referral";
 
-interface ReferralContextType {
+export interface ReferralContextType {
   referralData: ReferralData | null;
   isLoading: boolean;
   setReferral: (referrerAddress: string, source?: string) => void;
@@ -12,7 +13,16 @@ interface ReferralContextType {
   referrerAddress: string | null;
 }
 
-const ReferralContext = createContext<ReferralContextType | undefined>(
+export type ReferralLevelType = `level${number}`;
+
+export interface ReferralLevelData {
+  level: ReferralLevelType;
+  count: number;
+  referrals: ReferralAssigned[];
+  users: string[];
+}
+
+export const ReferralContext = createContext<ReferralContextType | undefined>(
   undefined
 );
 
@@ -30,14 +40,4 @@ export const ReferralProvider: React.FC<ReferralProviderProps> = ({
       {children}
     </ReferralContext.Provider>
   );
-};
-
-export const useReferralContext = (): ReferralContextType => {
-  const context = useContext(ReferralContext);
-  if (context === undefined) {
-    throw new Error(
-      "useReferralContext must be used within a ReferralProvider"
-    );
-  }
-  return context;
 };

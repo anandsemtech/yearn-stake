@@ -11,7 +11,7 @@ import {
   useStake,
   useUnstake,
   useClaimAPR,
-  useClaimAllStarRewards,
+  useClaimStarLevelRewards,
   useERC20Approve,
   useCheckApprovalNeeded,
   useTransactionReceipt,
@@ -50,11 +50,11 @@ export const YearnTogetherWriteExample: React.FC = () => {
     error: claimAPRError,
   } = useClaimAPR();
   const {
-    claimAllStarRewards,
+    claimStarLevelRewards: claimAllStarRewards,
     hash: claimAllHash,
     isPending: isClaimAllPending,
     error: claimAllError,
-  } = useClaimAllStarRewards();
+  } = useClaimStarLevelRewards();
   const {
     approve,
     hash: approveHash,
