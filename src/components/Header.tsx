@@ -64,10 +64,10 @@ const Header: React.FC = () => {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <Star className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 dark:from-blue-500 dark:to-purple-600 rounded-lg flex items-center justify-center">
+                <Star className="w-5 h-5 text-white dark:text-gray-900" />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 dark:from-blue-600 dark:to-purple-600 bg-clip-text text-transparent">
                 AffiliateX
               </span>
             </div>

@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect } from "react";
 import { Address, formatEther } from "viem";
 import { useAccount, useAccountEffect } from "wagmi";
 
+import { useReferralInfo } from "../graphql/hooks/useReferralInfo";
 import { PackageList, useUserStakes } from "../graphql/hooks/useUserStakes";
 import { useTokenDetails } from "../web3/ReadContract/useTokenDetails";
 import {
@@ -106,6 +107,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
     error: tokenAddressesError,
   } = useTokenAddresses();
 
+  const {
+    level1,
+    level2,
+    level3,
+    level4,
+    level5,
+    isLevel1Loading,
+    isLevel2Loading,
+    isLevel3Loading,
+    isLevel4Loading,
+    isLevel5Loading,
+  } = useReferralInfo();
+
   const { data: userStarLevel } = useUserStarLevel(address as Address);
 
   const { data: isUserGoldenStar } = useIsGoldenStar(address as Address);
@@ -188,6 +202,42 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     }
   }, [userStakes, claimableInterval]);
+
+  useEffect(() => {
+    if (
+      isLevel1Loading ||
+      isLevel2Loading ||
+      isLevel3Loading ||
+      isLevel4Loading ||
+      isLevel5Loading
+    )
+      return;
+    setUser((prevUser) => {
+      if (!prevUser) return null;
+      return {
+        ...prevUser,
+        directReferrals: level1.count,
+        levelUsers: {
+          1: level1?.count || 0,
+          2: level2?.count || 0,
+          3: level3?.count || 0,
+          4: level4?.count || 0,
+          5: level5?.count || 0,
+        },
+      };
+    });
+  }, [
+    isLevel1Loading,
+    isLevel2Loading,
+    isLevel3Loading,
+    isLevel4Loading,
+    isLevel5Loading,
+    level1,
+    level2,
+    level3,
+    level4,
+    level5,
+  ]);
 
   useEffect(() => {
     if (address) {
