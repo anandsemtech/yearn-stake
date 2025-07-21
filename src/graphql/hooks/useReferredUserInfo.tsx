@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Address } from "viem";
+import { Address, formatEther } from "viem";
 import { useChainId, usePublicClient } from "wagmi";
 
 import { baseContractConfig } from "../../web3/contract";
@@ -31,14 +31,32 @@ export const useReferredUserInfo = (users: Address[]) => {
       UserStake & { starLevel: number }
     > = {} as Record<`0x${string}`, UserStake & { starLevel: number }>;
     stakedData?.stakeds.forEach(async (staked) => {
-      stakedUsersWithAddedInfo[staked.user as `0x${string}`] = {
-        ...staked,
-        starLevel: (await publicClient?.readContract({
-          ...baseContractConfig(chainId as number),
-          functionName: "userStarLevel",
-          args: [staked.user as Address],
-        })) as number,
-      };
+      const userAddress = staked.user as `0x${string}`;
+      if (stakedUsersWithAddedInfo[userAddress]) {
+        // If user exists, add the staked amount
+        stakedUsersWithAddedInfo[userAddress] = {
+          ...stakedUsersWithAddedInfo[userAddress],
+          amount:
+            Number(
+              formatEther(
+                stakedUsersWithAddedInfo[userAddress]
+                  .amount as unknown as bigint
+              )
+            ) +
+            Number(formatEther(staked.amount as unknown as bigint)).toString(),
+          blockTimestamp: stakedUsersWithAddedInfo[userAddress].blockTimestamp,
+        };
+      } else {
+        // If new user, create entry
+        stakedUsersWithAddedInfo[userAddress] = {
+          ...staked,
+          starLevel: (await publicClient?.readContract({
+            ...baseContractConfig(chainId as number),
+            functionName: "userStarLevel",
+            args: [staked.user as Address],
+          })) as number,
+        };
+      }
     });
     setIsLoading(false);
     return stakedUsersWithAddedInfo;
@@ -46,6 +64,10 @@ export const useReferredUserInfo = (users: Address[]) => {
 
   return {
     stakedUsersWithAddedInfo,
+    totalStakedVolume: stakedData?.stakeds.reduce(
+      (acc, staked) => acc + Number(staked.amount),
+      0
+    ),
     isLoading: isStakedLoading || isLoading,
     stakedError,
   };

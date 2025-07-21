@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom placeholder colors for theme adaptation */
+@layer base {
+  input::placeholder {
+    @apply text-gray-900 dark:text-white;
+  }
+  
+  textarea::placeholder {
+    @apply text-gray-900 dark:text-white;
+  }
+}

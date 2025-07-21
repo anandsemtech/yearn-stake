@@ -137,9 +137,7 @@ const EarningsClaimPanel: React.FC = () => {
     if (days > 0) return `${days}d ${hours}h`;
     return `${hours}h`;
   };
-  console.log({
-    earnings,
-  });
+
   const totalAvailable = earnings.reduce(
     (sum, earning) => sum + earning.available,
     0

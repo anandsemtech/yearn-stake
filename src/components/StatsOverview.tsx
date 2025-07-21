@@ -2,22 +2,25 @@ import { DollarSign, TrendingUp, Users, Package } from "lucide-react";
 import React from "react";
 
 import { useWallet } from "../contexts/hooks/useWallet";
+import { useUserAllRewards } from "../graphql/hooks/useUserAllRewards";
 
 const StatsOverview: React.FC = () => {
   const { user } = useWallet();
 
+  const { totalRewardsEarnedByUser } = useUserAllRewards();
+
   const stats = [
     {
       title: "Total Earnings",
-      value: `$${user?.totalEarnings.toLocaleString() || "0"}`,
-      change: "+12.5%",
+      value: `$${totalRewardsEarnedByUser.toLocaleString() || "0"}`,
+      // change: "+12.5%",
       icon: DollarSign,
       color: "green",
     },
     {
       title: "Active Packages",
       value: user?.activePackages.length.toString() || "0",
-      change: "+2",
+      // change: "+2",
       icon: Package,
       color: "blue",
     },

@@ -20,12 +20,13 @@ const LeaderBoard: React.FC = () => {
   const { level1, level2, level3, level4, level5, getUsersByLevel } =
     referralInfo;
   const [selectedLevelIndex, setSelectedLevelIndex] = useState(0);
-  const { stakedUsersWithAddedInfo, isLoading: isStakedLoading } =
-    useReferredUserInfo(
-      getUsersByLevel(
-        (selectedLevelIndex + 1) as 1 | 2 | 3 | 4 | 5
-      ) as Address[]
-    );
+  const {
+    stakedUsersWithAddedInfo,
+    totalStakedVolume,
+    isLoading: isStakedLoading,
+  } = useReferredUserInfo(
+    getUsersByLevel((selectedLevelIndex + 1) as 1 | 2 | 3 | 4 | 5) as Address[]
+  );
 
   // Helper to map ReferralAssigned[] to table user format
   const mapReferralToUser = (
@@ -41,7 +42,15 @@ const LeaderBoard: React.FC = () => {
       joinDate: ref.blockTimestamp
         ? new Date(Number(ref.blockTimestamp) * 1000)
         : new Date(),
-      stakedVolume: 0,
+      stakedVolume: isStakedLoading
+        ? 0
+        : stakedUsersWithAddedInfo &&
+          stakedUsersWithAddedInfo[ref.user.toLowerCase() as `0x${string}`]
+        ? Number(
+            stakedUsersWithAddedInfo[ref.user.toLowerCase() as `0x${string}`]
+              .amount
+          )
+        : 0,
       totalEarnings: 0,
       starLevel: isStakedLoading
         ? 0
@@ -55,14 +64,13 @@ const LeaderBoard: React.FC = () => {
   };
   // Get real data for levels 1-5
   const referralLevels = [level1, level2, level3, level4, level5];
-
   // Compose levels array: use real data for levels 1-5 if available, else empty
   const levels = Array.from({ length: 15 }, (_, i) => {
     if (i < 5 && referralLevels[i] && referralLevels[i].count > 0) {
       return {
         level: i + 1,
         count: referralLevels[i].count,
-        volume: 0,
+        volume: totalStakedVolume,
         earnings: 0,
         users: mapReferralToUser(referralLevels[i].referrals, i + 1),
       };
@@ -71,7 +79,7 @@ const LeaderBoard: React.FC = () => {
     return {
       level: i + 1,
       count: 0,
-      volume: 0,
+      volume: totalStakedVolume,
       earnings: 0,
       users: [],
     };
@@ -227,7 +235,7 @@ const LeaderBoard: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Volume</span>
                 <span className="font-medium text-purple-700 dark:text-purple-300">
-                  ${selectedLevelData.volume.toLocaleString()}
+                  ${selectedLevelData.volume?.toLocaleString() || 0}
                 </span>
               </div>
               <div className="flex justify-between">

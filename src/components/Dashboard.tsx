@@ -71,7 +71,6 @@ const Dashboard: React.FC = () => {
             currentLevel={user?.starLevel || 0}
             currentVolume={user?.totalVolume || 15000}
             currentReferrals={user?.totalReferrals || 12}
-            totalEarnings={user?.totalEarnings || 12500.75}
             directReferrals={user?.directReferrals || 3}
             levelUsers={user?.levelUsers || { 1: 0, 2: 0, 3: 0, 4: 0 }}
             isGoldenStar={user?.isGoldenStar || false}

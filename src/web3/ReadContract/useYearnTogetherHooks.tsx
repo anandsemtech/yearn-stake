@@ -158,6 +158,9 @@ export const usePackage = (packageId: number) => {
     ...baseContractConfig(chainId),
     functionName: "packages",
     args: [BigInt(packageId)],
+    query: {
+      enabled: !!packageId,
+    },
   });
 
   const packageData = useMemo(() => {
@@ -396,9 +399,7 @@ export const useClaimableStarLevelRewards = (userAddress: Address) => {
 
   const rewardsData = useMemo(() => {
     if (!data) return null;
-    console.log({
-      claimableStarLevelRewards: data,
-    });
+
     const result = data as bigint[];
     return {
       totalClaimable: result[0],

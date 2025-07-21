@@ -1,6 +1,8 @@
 import { Star, Gift, Users, Award, AlertCircle } from "lucide-react";
 import React, { useState, useEffect } from "react";
 
+import { useUserAllRewards } from "../../graphql";
+
 import { starLevels, goldenStar } from "./constants";
 import ProgressRing from "./ProgressRing";
 import RequirementCard from "./RequirementCard";
@@ -9,12 +11,12 @@ import { StarLevelProgressProps } from "./types";
 
 const StarLevelProgress: React.FC<StarLevelProgressProps> = ({
   currentLevel,
-  totalEarnings,
   directReferrals = 3,
   levelUsers = { 1: 0, 2: 0, 3: 0, 4: 0 },
   isGoldenStar = false,
 }) => {
   const [animationProgress, setAnimationProgress] = useState(0);
+  const { totalRewardsEarnedByUser } = useUserAllRewards();
 
   // Show "Not Achieved" state for levels below 1-Star
   const isNotAchieved =
@@ -156,7 +158,7 @@ const StarLevelProgress: React.FC<StarLevelProgressProps> = ({
 
               <div className="text-right">
                 <div className="text-3xl font-bold text-gray-700 dark:text-gray-300">
-                  ${totalEarnings.toLocaleString()}
+                  ${totalRewardsEarnedByUser.toLocaleString()}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   Total Earnings
@@ -270,7 +272,7 @@ const StarLevelProgress: React.FC<StarLevelProgressProps> = ({
 
               <div className="text-right">
                 <div className="text-3xl font-bold text-gray-900 dark:text-white">
-                  ${totalEarnings.toLocaleString()}
+                  ${totalRewardsEarnedByUser.toLocaleString()}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   Total Earnings

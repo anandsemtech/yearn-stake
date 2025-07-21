@@ -25,7 +25,6 @@ export interface StarLevelProgressProps {
   currentLevel: number;
   currentVolume: number;
   currentReferrals: number;
-  totalEarnings: number;
   directReferrals?: number;
   levelUsers?: { [key: number]: number };
   isGoldenStar?: boolean;
