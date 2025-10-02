@@ -1,289 +1,605 @@
-import { DollarSign, Star, Award, Clock, TrendingUp, Zap } from "lucide-react";
-import React, { useEffect, useState } from "react";
-
-import { useWallet } from "../contexts/hooks/useWallet";
+// src/components/EarningsClaimPanel.tsx
+import React, { useEffect, useMemo, useState } from "react";
+import { Award, Clock, Star, TrendingUp, Zap } from "lucide-react";
+import { Address, BaseError, ContractFunctionRevertedError, decodeErrorResult, formatUnits } from "viem";
+import { baseSepolia } from "viem/chains";
 import {
-  useClaimGoldenStarRewards,
-  useClaimReferralRewards,
-  useClaimStarLevelRewards,
-} from "../web3/WriteContract/useYearnTogetherWrite";
+  useAccount,
+  useChainId,
+  usePublicClient,
+  useReadContracts,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
+
+import { useWallet } from "@/contexts/hooks/useWallet";
+import { STAKING_ABI } from "@/web3/abi/stakingAbi";
+
+/* ===== Proxy (staking) address from env ===== */
+const PROXY =
+  (import.meta.env.VITE_BASE_CONTRACT_ADDRESS as `0x${string}`) ||
+  ("0x0000000000000000000000000000000000000000" as const);
+
+/* ===== ENV tokens (fallback only) ===== */
+const Y_ENV = import.meta.env.VITE_YYEARN_ADDRESS as `0x${string}` | undefined;
+const S_ENV = import.meta.env.VITE_SYEARN_ADDRESS as `0x${string}` | undefined;
+const P_ENV = import.meta.env.VITE_PYEARN_ADDRESS as `0x${string}` | undefined;
+
+/* ===== Minimal ABIs ===== */
+const REFERRAL_EARNINGS_ABI = [
+  {
+    type: "function",
+    name: "referralEarnings",
+    stateMutability: "view",
+    inputs: [
+      { name: "referrer", type: "address" },
+      { name: "token", type: "address" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+const TOKEN_GETTERS_ABI = [
+  { type: "function", name: "yYearn", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "sYearn", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "pYearn", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+] as const;
+
+/* ---------- Dark UI atoms ---------- */
+const DarkCard: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ className, children }) => (
+  <div
+    className={[
+      "rounded-2xl p-4 sm:p-5",
+      "bg-gray-800 border border-gray-700 shadow-[0_6px_20px_-10px_rgba(0,0,0,0.6)]",
+      className || "",
+    ].join(" ")}
+  >
+    {children}
+  </div>
+);
+
+const Pill: React.FC<{ className?: string; children: React.ReactNode }> = ({ className, children }) => (
+  <span className={["inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border", className || ""].join(" ")}>
+    {children}
+  </span>
+);
+
+/* ----------------------------------- */
+type EarningCard = {
+  type: "referral" | "star" | "golden";
+  title: string;
+  amount: number;
+  availableRaw?: bigint | null;
+  available: number;
+  breakdown?: { y: number; s: number; p: number };
+  nextClaim: Date | null;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  accent: {
+    iconBg: string;
+    iconFg: string;
+    chip: string;
+    chipMuted: string;
+    ring: string;
+  };
+  description: string;
+  onClaim: () => Promise<unknown> | void;
+  canWrite: boolean;
+  pending: boolean;
+  ok?: boolean;
+  err?: Error;
+};
 
 const EarningsClaimPanel: React.FC = () => {
   const [claimingType, setClaimingType] = useState<string | null>(null);
-  const {
-    totalReferralEarnings,
-    currentStarLevelEarnings,
-    pendingGoldenStarRewards,
-  } = useWallet();
-  const {
-    claimReferralRewards,
-    error: claimReferralRewardsError,
-    isSuccess: isClaimingReferralRewardsSuccess,
-  } = useClaimReferralRewards();
+  const [friendlyError, setFriendlyError] = useState<string | null>(null);
+
+  const { address } = useAccount();
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+
+  const REQUIRED_CHAIN = baseSepolia.id; // 84532
+  const isConnected = Boolean(address);
+  const onCorrectChain = chainId === REQUIRED_CHAIN;
 
   const {
-    claimStarLevelRewards,
-    isSuccess: isClaimingStarLevelRewardsSuccess,
-    error: claimStarLevelRewardsError,
-  } = useClaimStarLevelRewards();
-
-  const {
-    claimGoldenStarRewards,
-    isSuccess: isClaimingGoldenStarRewardsSuccess,
-    error: claimGoldenStarRewardsError,
-  } = useClaimGoldenStarRewards();
-
-  useEffect(() => {
-    if (
-      claimReferralRewardsError ||
-      isClaimingReferralRewardsSuccess ||
-      isClaimingGoldenStarRewardsSuccess ||
-      isClaimingStarLevelRewardsSuccess ||
-      claimGoldenStarRewardsError ||
-      claimStarLevelRewardsError
-    ) {
-      setClaimingType(null);
-    }
-  }, [
-    claimReferralRewardsError,
-    isClaimingReferralRewardsSuccess,
-    isClaimingGoldenStarRewardsSuccess,
-    isClaimingStarLevelRewardsSuccess,
-    claimGoldenStarRewardsError,
-    claimStarLevelRewardsError,
-  ]);
-
-  const earnings = [
-    {
-      type: "referral",
-      title: "Referral Earnings",
-      amount: totalReferralEarnings,
-      available: totalReferralEarnings,
-      nextClaim: new Date(),
-      icon: TrendingUp,
-      color: "blue",
-      description: "Earnings from your referral network",
-    },
-    {
-      type: "star",
-      title: "Star Level Earnings",
-      amount: currentStarLevelEarnings,
-      available: currentStarLevelEarnings,
-      nextClaim: new Date(),
-      icon: Star,
-      color: "purple",
-      description: "Rewards from your current star level",
-    },
-    {
-      type: "golden",
-      title: "Golden Star Earnings",
-      amount: pendingGoldenStarRewards,
-      available: pendingGoldenStarRewards,
-      nextClaim: null,
-      icon: Award,
-      color: "yellow",
-      description: "Special rewards for Golden Star achievement",
-    },
-  ];
-
-  const handleClaim = async (type: string) => {
-    if (type === "referral") {
-      setClaimingType(type);
-      await claimReferralRewards();
-    } else if (type === "star") {
-      setClaimingType(type);
-      await claimStarLevelRewards();
-    } else if (type === "golden") {
-      setClaimingType(type);
-      await claimGoldenStarRewards();
-    }
+    totalReferralEarnings = 0,
+    currentStarLevelEarnings = 0,
+    pendingGoldenStarRewards = 0,
+    refreshTokenBalances,
+    refreshWallet,
+  } = useWallet() as {
+    totalReferralEarnings?: number;
+    currentStarLevelEarnings?: number;
+    pendingGoldenStarRewards?: number;
+    refreshTokenBalances?: () => void;
+    refreshWallet?: () => void;
   };
 
-  const getColorClasses = (color: string) => {
-    const colorMap = {
-      blue: {
-        bg: "from-blue-500 to-cyan-600",
-        text: "text-blue-600 dark:text-blue-400",
-        bgLight: "bg-blue-50 dark:bg-blue-900/20",
-        border: "border-blue-200 dark:border-blue-800",
+  /* ====== STATE for token addresses (with fallback) ====== */
+  const [onChainY, setOnChainY] = useState<Address | undefined>(undefined);
+  const [onChainS, setOnChainS] = useState<Address | undefined>(undefined);
+  const [onChainP, setOnChainP] = useState<Address | undefined>(undefined);
+  const [usedFallbackEnv, setUsedFallbackEnv] = useState(false);
+
+  /* ====== Batch read token addresses from the proxy ====== */
+  const tokenAddrs = useReadContracts({
+    allowFailure: true,
+    contracts: [
+      { abi: TOKEN_GETTERS_ABI, address: PROXY, functionName: "yYearn" },
+      { abi: TOKEN_GETTERS_ABI, address: PROXY, functionName: "sYearn" },
+      { abi: TOKEN_GETTERS_ABI, address: PROXY, functionName: "pYearn" },
+    ],
+    query: {
+      enabled: Boolean(PROXY && isConnected && onCorrectChain),
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      staleTime: 0,
+    },
+  });
+
+  /* ====== Adopt token getter results (with single-read + ENV fallback) ====== */
+  useEffect(() => {
+    (async () => {
+      if (!publicClient || !PROXY || !isConnected || !onCorrectChain) {
+        setOnChainY(undefined);
+        setOnChainS(undefined);
+        setOnChainP(undefined);
+        return;
+      }
+
+      const yRes = tokenAddrs.data?.[0]?.result as Address | undefined;
+      const sRes = tokenAddrs.data?.[1]?.result as Address | undefined;
+      const pRes = tokenAddrs.data?.[2]?.result as Address | undefined;
+
+      if (yRes && sRes && pRes) {
+        setOnChainY(yRes);
+        setOnChainS(sRes);
+        setOnChainP(pRes);
+        setUsedFallbackEnv(false);
+        return;
+      }
+
+      try {
+        const [ySingle, sSingle, pSingle] = (await Promise.all([
+          publicClient.readContract({ address: PROXY, abi: TOKEN_GETTERS_ABI, functionName: "yYearn" }),
+          publicClient.readContract({ address: PROXY, abi: TOKEN_GETTERS_ABI, functionName: "sYearn" }),
+          publicClient.readContract({ address: PROXY, abi: TOKEN_GETTERS_ABI, functionName: "pYearn" }),
+        ])) as [Address, Address, Address];
+
+        setOnChainY(ySingle);
+        setOnChainS(sSingle);
+        setOnChainP(pSingle);
+        setUsedFallbackEnv(false);
+      } catch {
+        if (Y_ENV && S_ENV && P_ENV) {
+          setOnChainY(Y_ENV as Address);
+          setOnChainS(S_ENV as Address);
+          setOnChainP(P_ENV as Address);
+          setUsedFallbackEnv(true);
+        } else {
+          setOnChainY(undefined);
+          setOnChainS(undefined);
+          setOnChainP(undefined);
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicClient, PROXY, isConnected, onCorrectChain, tokenAddrs.data?.[0], tokenAddrs.data?.[1], tokenAddrs.data?.[2]]);
+
+  const tokensLoaded = Boolean(onChainY && onChainS && onChainP);
+
+  /* ===== Live referral claimables using the resolved token addresses ===== */
+  const referralClaimables = useReadContracts({
+    allowFailure: true,
+    contracts:
+      tokensLoaded && address
+        ? ([
+            { abi: REFERRAL_EARNINGS_ABI, address: PROXY, functionName: "referralEarnings", args: [address as Address, onChainY as Address] },
+            { abi: REFERRAL_EARNINGS_ABI, address: PROXY, functionName: "referralEarnings", args: [address as Address, onChainS as Address] },
+            { abi: REFERRAL_EARNINGS_ABI, address: PROXY, functionName: "referralEarnings", args: [address as Address, onChainP as Address] },
+          ] as const)
+        : [],
+    query: {
+      enabled: Boolean(tokensLoaded && address && onCorrectChain),
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      staleTime: 0,
+    },
+  });
+
+  const [claimY = 0n, claimS = 0n, claimP = 0n] =
+    (referralClaimables.data?.map((r) => (r?.result as bigint) ?? 0n) as [bigint, bigint, bigint]) ?? [0n, 0n, 0n];
+
+  const referralAvailableRaw = claimY + claimS + claimP;
+  const referralAvailable = Number(formatUnits(referralAvailableRaw, 18));
+  const referralBreakdown = {
+    y: Number(formatUnits(claimY, 18)),
+    s: Number(formatUnits(claimS, 18)),
+    p: Number(formatUnits(claimP, 18)),
+  };
+
+  /* ===== Writes: simulate → write (force proxy & chain) ===== */
+  const { writeContractAsync, data: txHash, isPending: writePending, error: writeErr } = useWriteContract();
+  const { isLoading: confirmingTx, isSuccess: okTx } = useWaitForTransactionReceipt({ hash: txHash });
+
+  const claimReferral = async () => {
+    if (!publicClient) throw new Error("No public client");
+    await publicClient.simulateContract({
+      address: PROXY,
+      abi: STAKING_ABI,
+      functionName: "claimReferralRewards",
+      account: address as Address,
+      chainId: REQUIRED_CHAIN,
+      args: [],
+    });
+    return writeContractAsync({
+      address: PROXY,
+      abi: STAKING_ABI,
+      functionName: "claimReferralRewards",
+      chainId: REQUIRED_CHAIN,
+      args: [],
+    });
+  };
+
+  const claimStar = async () => {
+    if (!publicClient) throw new Error("No public client");
+    await publicClient.simulateContract({
+      address: PROXY,
+      abi: STAKING_ABI,
+      functionName: "claimStarLevelRewards",
+      account: address as Address,
+      chainId: REQUIRED_CHAIN,
+      args: [],
+    });
+    return writeContractAsync({
+      address: PROXY,
+      abi: STAKING_ABI,
+      functionName: "claimStarLevelRewards",
+      chainId: REQUIRED_CHAIN,
+      args: [],
+    });
+  };
+
+  const claimGolden = async () => {
+    if (!publicClient) throw new Error("No public client");
+    await publicClient.simulateContract({
+      address: PROXY,
+      abi: STAKING_ABI,
+      functionName: "claimGoldenStarRewards",
+      account: address as Address,
+      chainId: REQUIRED_CHAIN,
+      args: [],
+    });
+    return writeContractAsync({
+      address: PROXY,
+      abi: STAKING_ABI,
+      functionName: "claimGoldenStarRewards",
+      chainId: REQUIRED_CHAIN,
+      args: [],
+    });
+  };
+
+  useEffect(() => {
+    if (writeErr || okTx) setClaimingType(null);
+  }, [writeErr, okTx]);
+
+  useEffect(() => {
+    if (okTx) {
+      referralClaimables.refetch?.();
+      tokenAddrs.refetch?.();
+      refreshTokenBalances?.();
+      refreshWallet?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [okTx]);
+
+  /* ===== canWrite flags ===== */
+  const canWriteReferral = isConnected && onCorrectChain && tokensLoaded && referralAvailableRaw > 0n && !writePending && !confirmingTx;
+  const canWriteStar = isConnected && onCorrectChain && (currentStarLevelEarnings || 0) > 0 && !writePending && !confirmingTx;
+  const canWriteGolden = isConnected && onCorrectChain && (pendingGoldenStarRewards || 0) > 0 && !writePending && !confirmingTx;
+
+  /* ===== Cards ===== */
+  const earnings: EarningCard[] = useMemo(
+    () => [
+      {
+        type: "referral",
+        title: "Referral Earnings",
+        amount: totalReferralEarnings,
+        availableRaw: referralAvailableRaw,
+        available: referralAvailable,
+        breakdown: referralBreakdown,
+        nextClaim: new Date(),
+        icon: TrendingUp,
+        accent: {
+          iconBg: "bg-blue-600/20",
+          iconFg: "text-blue-300",
+          chip: "border-blue-700 text-blue-300",
+          chipMuted: "border-gray-600 text-gray-400",
+          ring: "focus-visible:ring-blue-500/40",
+        },
+        description: "Earnings from your referral network.",
+        onClaim: () => (canWriteReferral ? claimReferral() : Promise.reject(new Error("Not ready"))),
+        canWrite: canWriteReferral,
+        pending: writePending || confirmingTx,
+        ok: okTx,
+        err: writeErr as Error | undefined,
       },
-      purple: {
-        bg: "from-purple-500 to-violet-600",
-        text: "text-purple-600 dark:text-purple-400",
-        bgLight: "bg-purple-50 dark:bg-purple-900/20",
-        border: "border-purple-200 dark:border-purple-800",
+      {
+        type: "star",
+        title: "Star Level Earnings",
+        amount: currentStarLevelEarnings,
+        availableRaw: null,
+        available: currentStarLevelEarnings,
+        nextClaim: new Date(),
+        icon: Star,
+        accent: {
+          iconBg: "bg-purple-600/20",
+          iconFg: "text-purple-300",
+          chip: "border-purple-700 text-purple-300",
+          chipMuted: "border-gray-600 text-gray-400",
+          ring: "focus-visible:ring-purple-500/40",
+        },
+        description: "Rewards from your current star level.",
+        onClaim: () => (canWriteStar ? claimStar() : Promise.reject(new Error("Not ready"))),
+        canWrite: canWriteStar,
+        pending: writePending || confirmingTx,
+        ok: okTx,
+        err: writeErr as Error | undefined,
       },
-      yellow: {
-        bg: "from-yellow-500 to-amber-600",
-        text: "text-yellow-600 dark:text-yellow-400",
-        bgLight: "bg-yellow-50 dark:bg-yellow-900/20",
-        border: "border-yellow-200 dark:border-yellow-800",
+      {
+        type: "golden",
+        title: "Golden Star Earnings",
+        amount: pendingGoldenStarRewards,
+        availableRaw: null,
+        available: pendingGoldenStarRewards,
+        nextClaim: null,
+        icon: Award,
+        accent: {
+          iconBg: "bg-amber-600/20",
+          iconFg: "text-amber-300",
+          chip: "border-amber-700 text-amber-300",
+          chipMuted: "border-gray-600 text-gray-400",
+          ring: "focus-visible:ring-amber-500/40",
+        },
+        description: "Special rewards for Golden Star achievement.",
+        onClaim: () => (canWriteGolden ? claimGolden() : Promise.reject(new Error("Not ready"))),
+        canWrite: canWriteGolden,
+        pending: writePending || confirmingTx,
+        ok: okTx,
+        err: writeErr as Error | undefined,
       },
-    };
-    return colorMap[color as keyof typeof colorMap];
+    ],
+    [
+      totalReferralEarnings,
+      currentStarLevelEarnings,
+      pendingGoldenStarRewards,
+      referralAvailableRaw,
+      referralAvailable,
+      referralBreakdown.y,
+      referralBreakdown.s,
+      referralBreakdown.p,
+      canWriteReferral,
+      canWriteStar,
+      canWriteGolden,
+      writePending,
+      confirmingTx,
+      okTx,
+      writeErr,
+    ]
+  );
+
+  /* ===== Friendly revert decoding ===== */
+  const decodeFriendly = (e: unknown) => {
+    if (e instanceof BaseError) {
+      const revert = e.walk((err) => err instanceof ContractFunctionRevertedError) as
+        | ContractFunctionRevertedError
+        | undefined;
+      const data = (revert as any)?.data || (revert as any)?.cause?.data;
+      if (data) {
+        try {
+          const decoded = decodeErrorResult({ abi: STAKING_ABI, data: data as `0x${string}` });
+          const name = decoded.errorName;
+          const args = decoded.args ?? [];
+          return args.length ? `${name}: ${args.map(String).join(", ")}` : name;
+        } catch { /* ignore */ }
+      }
+      return e.shortMessage || e.message;
+    }
+    return (e as Error)?.message ?? String(e);
+  };
+
+  const handleClaim = async (type: string) => {
+    setFriendlyError(null);
+    const idx = type === "referral" ? 0 : type === "star" ? 1 : 2;
+    const target = earnings[idx];
+    if (!target?.canWrite || typeof target?.onClaim !== "function") return;
+
+    try {
+      setClaimingType(type);
+      await target.onClaim();
+    } catch (e) {
+      const msg = decodeFriendly(e);
+      setFriendlyError(msg);
+      setClaimingType(null);
+    }
   };
 
   const formatTimeUntilClaim = (date: Date | null) => {
     if (!date) return "Not available";
-
-    const now = new Date();
-    const diff = date.getTime() - now.getTime();
-
+    const diff = date.getTime() - Date.now();
     if (diff <= 0) return "Available now";
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-    if (days > 0) return `${days}d ${hours}h`;
-    return `${hours}h`;
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
   };
 
-  const totalAvailable = earnings.reduce(
-    (sum, earning) => sum + earning.available,
-    0
-  );
+  const totalAvailable = referralAvailable + currentStarLevelEarnings + pendingGoldenStarRewards;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Earnings & Claims
-        </h2>
-        <div className="text-right">
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            ${totalAvailable.toLocaleString()}
+      {/* Header / Total */}
+      <DarkCard>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base sm:text-lg font-semibold text-white">Earnings</h3>
+            <p className="text-sm text-gray-400">Claim rewards from your referral network and star levels.</p>
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Total Available
+          <div className="text-right">
+            <div className="text-2xl font-bold text-emerald-400">
+              ${totalAvailable.toLocaleString()}
+            </div>
+            <div className="text-xs text-gray-400">Total Available</div>
           </div>
         </div>
-      </div>
+        {usedFallbackEnv && (
+          <div className="mt-2 text-[12px] text-amber-300">
+            Using ENV token addresses as a fallback while token pointers load…
+          </div>
+        )}
+      </DarkCard>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {earnings.map((earning) => {
-          const colors = getColorClasses(earning.color);
-          const isClaimable =
-            earning.available > 0 &&
-            (!earning.nextClaim || earning.nextClaim <= new Date());
-          const isClaiming = claimingType === earning.type;
+      {/* Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {earnings.map((e) => {
+          const isReferral = e.type === "referral";
+          const hasClaimables = isReferral
+            ? ((e.availableRaw as bigint) ?? 0n) > 0n
+            : (e.available || 0) > 0;
+
+          const isClaimable = hasClaimables && (!e.nextClaim || e.nextClaim <= new Date());
+          const isClaiming = claimingType === e.type;
 
           return (
-            <div
-              key={earning.type}
-              className={`${colors.bgLight} rounded-2xl p-6 border ${colors.border} transition-all duration-300 hover:shadow-lg`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div
-                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors.bg} flex items-center justify-center`}
-                >
-                  <earning.icon className="w-6 h-6 text-white" />
+            <DarkCard key={e.type} className="hover:bg-gray-780 transition-colors">
+              {/* Icon + amount */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-11 h-11 rounded-xl ${e.accent.iconBg} flex items-center justify-center`}>
+                    <e.icon className={`w-6 h-6 ${e.accent.iconFg}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-white font-semibold truncate">{e.title}</div>
+                    <div className="text-[13px] text-gray-400 truncate">{e.description}</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className={`text-lg font-bold ${colors.text}`}>
-                    ${earning.amount.toLocaleString()}
+
+                <div className="text-right shrink-0">
+                  <div className="text-lg font-bold text-gray-100">
+                    ${e.amount.toLocaleString()}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Total Earned
-                  </div>
+                  <div className="text-[11px] text-gray-500">Total earned</div>
                 </div>
               </div>
 
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                {earning.title}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                {earning.description}
-              </p>
-
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Available
-                  </span>
-                  <span className="font-semibold text-green-600 dark:text-green-400">
-                    ${earning.available.toLocaleString()}
-                  </span>
+              {/* Availability + referral breakdown */}
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center gap-1 text-[13px] text-gray-300">
+                  <Clock className="w-3.5 h-3.5 text-gray-400" />
+                  <span>{formatTimeUntilClaim(e.nextClaim)}</span>
                 </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Next Claim
-                  </span>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {formatTimeUntilClaim(earning.nextClaim)}
+                {isReferral && (
+                  <div className="flex items-center gap-2">
+                    <Pill className={hasClaimables ? e.accent.chip : e.accent.chipMuted}>
+                      YY {(e.breakdown?.y ?? 0).toLocaleString()}
+                    </Pill>
+                    <Pill className={hasClaimables ? e.accent.chip : e.accent.chipMuted}>
+                      SY {(e.breakdown?.s ?? 0).toLocaleString()}
+                    </Pill>
+                    <Pill className={hasClaimables ? e.accent.chip : e.accent.chipMuted}>
+                      PY {(e.breakdown?.p ?? 0).toLocaleString()}
+                    </Pill>
+                  </div>
+                )}
+              </div>
+
+              {/* CTA */}
+              <button
+                onClick={() => handleClaim(e.type)}
+                disabled={!isClaimable || e.pending || isClaiming || !e.canWrite}
+                className={[
+                  "mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium outline-none",
+                  "transition-colors focus-visible:ring-2",
+                  isClaimable && e.canWrite
+                    ? `bg-emerald-600 hover:bg-emerald-500 text-white ${e.accent.ring}`
+                    : "bg-gray-700 text-gray-400 cursor-not-allowed",
+                ].join(" ")}
+              >
+                {isClaiming || e.pending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+                    <span>Processing…</span>
+                  </>
+                ) : isClaimable && e.canWrite ? (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    <span>
+                      {e.type === "referral"
+                        ? `Claim ${e.available.toLocaleString()}`
+                        : `Claim $${(e.available || 0).toLocaleString()}`}
                     </span>
-                  </div>
-                </div>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-4 h-4" />
+                    <span>{(e.available || 0) === 0 ? "No earnings" : "Not ready"}</span>
+                  </>
+                )}
+              </button>
 
-                <button
-                  onClick={() => handleClaim(earning.type)}
-                  disabled={!isClaimable || isClaiming}
-                  className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed font-medium ${
-                    isClaimable
-                      ? `bg-gradient-to-r ${colors.bg} text-white hover:opacity-90`
-                      : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                  }`}
-                >
-                  {isClaiming ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Claiming...</span>
-                    </>
-                  ) : isClaimable ? (
-                    <>
-                      <Zap className="w-4 h-4" />
-                      <span>Claim Now</span>
-
-                      {/* <span>Claim ${earning.available.toLocaleString()}</span> */}
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="w-4 h-4" />
-                      <span>
-                        {earning.available === 0 ? "No earnings" : "Not ready"}
-                      </span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+              {/* Error from wagmi write */}
+              {e.err && <div className="mt-2 text-[12px] text-red-400">{e.err.message}</div>}
+            </DarkCard>
           );
         })}
       </div>
 
-      {/* Claim All Button */}
+      {/* Decoded revert / friendly error */}
+      {friendlyError && (
+        <DarkCard className="border border-rose-700/40 bg-rose-900/10">
+          <div className="text-sm text-rose-300">{friendlyError}</div>
+        </DarkCard>
+      )}
+
+      {/* Claim All */}
       {totalAvailable > 0 && (
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-6 border border-green-200 dark:border-green-800">
-          <div className="flex items-center justify-between">
+        <DarkCard className="border-emerald-700">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                Claim All Available Earnings
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Claim all your available earnings in one transaction
-              </p>
+              <div className="text-white font-semibold">Claim All Available Earnings</div>
+              <div className="text-sm text-gray-400">Runs up to 3 transactions (referral, star, golden).</div>
             </div>
             <button
-              onClick={() => handleClaim("all")}
+              onClick={async () => {
+                setClaimingType("all");
+                try {
+                  if (canWriteReferral) await claimReferral();
+                  if (canWriteStar) await claimStar();
+                  if (canWriteGolden) await claimGolden();
+                } catch (e) {
+                  const msg = decodeFriendly(e);
+                  setFriendlyError(msg);
+                } finally {
+                  setClaimingType(null);
+                }
+              }}
               disabled={claimingType === "all"}
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed font-semibold"
+              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white focus-visible:ring-2 focus-visible:ring-emerald-500/40 disabled:opacity-60"
             >
               {claimingType === "all" ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Claiming...</span>
+                  <div className="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+                  <span>Processing…</span>
                 </>
               ) : (
                 <>
-                  <DollarSign className="w-5 h-5" />
+                  <Zap className="w-4 h-4" />
                   <span>Claim ${totalAvailable.toLocaleString()}</span>
                 </>
               )}
             </button>
           </div>
-        </div>
+        </DarkCard>
       )}
     </div>
   );

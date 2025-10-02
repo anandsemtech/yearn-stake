@@ -1,65 +1,82 @@
-import { useEffect, useState } from "react";
-import { Address } from "viem";
-import { useAccount } from "wagmi";
+import { useQuery } from "@tanstack/react-query";
+import { gql } from "graphql-request";
+import { subgraph, SUBGRAPH_URL } from "@/lib/subgraph";
+import type {
+  ActivePackagesLegacyQuery,
+  ActivePackagesLegacyQueryVariables,
+} from "@/graphql/__generated__/types";
 
-import { useGraphQLQuery } from "../hooks";
-import { GET_PACKAGES_CREATED, GET_USER_STAKES } from "../queries";
-import { PackageCreated, UserStake } from "../types";
+export type PackageList = {
+  internal_id?: string;
+  id: string;
+  durationYears: number;
+  totalStaked: string;       // from minStakeAmount (wei)
+  apr: number;               // percent
+  blockTimestamp: string;    // seconds
+  claimableInterval: string; // seconds
+  isActive: boolean;
+  stakeIndex: string;        // packageId
+  minStakeAmount?: string;
+};
 
-export interface PackageList extends PackageCreated, UserStake {
-  totalStaked: number;
+const ACTIVE_PACKAGES_LEGACY = gql/* GraphQL */ `
+  query ActivePackagesLegacy($first: Int = 1000) {
+    packages(
+      first: $first
+      orderBy: packageId
+      orderDirection: asc
+      where: { isActive: true }
+    ) {
+      id
+      packageId
+      durationInDays
+      aprBps
+      isActive
+      minStakeAmount
+      claimableInterval
+      createdAt
+    }
+  }
+`;
+
+function normalizeToPackageList(
+  p: ActivePackagesLegacyQuery["packages"][number]
+): PackageList {
+  return {
+    internal_id: String(p.id),
+    id: String(p.packageId),
+    durationYears: Number(p.durationInDays ?? 0) / 365,
+    totalStaked: String(p.minStakeAmount ?? "0"),
+    apr: Number(p.aprBps ?? 0) / 100, // bps -> %
+    blockTimestamp: String(p.createdAt ?? "0"),
+    claimableInterval: String(p.claimableInterval ?? "0"),
+    isActive: !!p.isActive,
+    stakeIndex: String(p.packageId),
+    minStakeAmount: String(p.minStakeAmount ?? "0"),
+  };
 }
 
-export const useUserStakes = () => {
-  const { address } = useAccount();
-  const [packageList, setPackageList] = useState<PackageList[]>([]);
+export function useUserStakes() {
+  const q = useQuery({
+    queryKey: ["subgraph", SUBGRAPH_URL, "ActivePackagesLegacy", "legacy-shape"],
+    queryFn: async () => {
+      const data = await subgraph.request<
+        ActivePackagesLegacyQuery,
+        ActivePackagesLegacyQueryVariables
+      >(ACTIVE_PACKAGES_LEGACY, { first: 1000 });
 
-  const { data: userStakes, loading: isUserStakesLoading } = useGraphQLQuery<{
-    stakeds: Array<UserStake>;
-  }>(GET_USER_STAKES, {
-    variables: {
-      user: address as Address,
-      orderBy: "blockTimestamp",
-      orderDirection: "desc",
+      const list = (data.packages ?? []).map(normalizeToPackageList);
+      list.sort((a, b) => Number(a.id) - Number(b.id));
+      return { packageList: list };
     },
-    skip: !address,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: packageDetails, loading: isPackageDetailsLoading } =
-    useGraphQLQuery<{
-      packageCreateds: Array<PackageCreated>;
-    }>(GET_PACKAGES_CREATED, {
-      variables: {
-        where: {
-          internal_id_in: userStakes?.stakeds.map((stake) => stake.packageId),
-        },
-      },
-      skip: !userStakes?.stakeds.length,
-    });
-
-  useEffect(() => {
-    if (packageDetails && userStakes?.stakeds.length) {
-      const packageList = userStakes?.stakeds
-        .map((stake) => {
-          const pkg = packageDetails.packageCreateds.find(
-            (p) => Number(p.internal_id) === Number(stake.packageId)
-          );
-          if (!pkg) return null;
-          return {
-            ...pkg,
-            ...stake,
-            apr: pkg.apr ? pkg.apr / 100 : 0,
-            totalStaked: Number(stake.amount),
-          };
-        })
-        .filter((item): item is PackageList => item !== null);
-      setPackageList(packageList);
-    }
-  }, [packageDetails, userStakes?.stakeds]);
-
   return {
-    userStakes,
-    packageList,
-    isLoading: isUserStakesLoading || isPackageDetailsLoading,
+    packageList: q.data?.packageList ?? [],
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
   };
-};
+}

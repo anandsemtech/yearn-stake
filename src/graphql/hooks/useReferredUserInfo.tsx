@@ -16,7 +16,7 @@ export const useReferredUserInfo = (users: Address[]) => {
     loading: isStakedLoading,
     error: stakedError,
   } = useGraphQLQuery<{
-    stakeds: Array<UserStake>;
+    stakes: Array<UserStake>;
   }>(GET_MULTIPLE_USER_STAKES, {
     variables: {
       users,
@@ -30,7 +30,7 @@ export const useReferredUserInfo = (users: Address[]) => {
       Address,
       UserStake & { starLevel: number }
     > = {} as Record<`0x${string}`, UserStake & { starLevel: number }>;
-    stakedData?.stakeds.forEach(async (staked) => {
+    stakedData?.stakes.forEach(async (staked) => {
       const userAddress = staked.user as `0x${string}`;
       if (stakedUsersWithAddedInfo[userAddress]) {
         // If user exists, add the staked amount
@@ -64,7 +64,7 @@ export const useReferredUserInfo = (users: Address[]) => {
 
   return {
     stakedUsersWithAddedInfo,
-    totalStakedVolume: stakedData?.stakeds.reduce(
+    totalStakedVolume: stakedData?.stakes.reduce(
       (acc, staked) => acc + Number(staked.amount),
       0
     ),

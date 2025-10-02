@@ -1,0 +1,15 @@
+# codegen.yml
+require:
+  - dotenv/config
+schema: "https://api.studio.thegraph.com/query/109223/yearntogether-testnet/v0.2.1"
+documents:
+  - "./src/graphql/**/*.ts"
+  - "./src/**/*.tsx"
+generates:
+  ./src/graphql/__generated__/types.ts:
+    plugins:
+      - typescript
+      - typescript-operations
+    config:
+      enumsAsTypes: true
+      maybeValue: "T | null"

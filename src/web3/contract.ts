@@ -1,28 +1,13 @@
-import { Address, erc20Abi } from "viem";
-import { baseSepolia } from "viem/chains";
+// src/web3/contract.ts
+import type { Address } from 'viem'
+import { baseSepolia } from 'viem/chains'
 
-import abi from "./abi/abi.json";
+export const BASE_CONTRACT_ADDRESS = (import.meta.env.VITE_BASE_CONTRACT_ADDRESS || '') as Address
 
-export const BASE_CONTRACT = {
-  [baseSepolia.id]: {
-    address: import.meta.env.VITE_BASE_CONTRACT_ADDRESS,
-    abi: abi,
-  },
-};
+if (!BASE_CONTRACT_ADDRESS) {
+  throw new Error('VITE_BASE_CONTRACT_ADDRESS is missing')
+}
 
-export const baseContractConfig = (chainId: number) => {
-  return BASE_CONTRACT[chainId as keyof typeof BASE_CONTRACT];
-};
-
-export const ercConfig = (chainId: number) => {
-  return ASSET_ADDRESS[chainId as keyof typeof ASSET_ADDRESS];
-};
-
-export const defaultGasLimit = 1000000n;
-
-export const ASSET_ADDRESS = {
-  [baseSepolia.id]: {
-    address: "0xfa74fe02f67fcc3d5797e3d7c41af027bf78dbee" as Address,
-    abi: erc20Abi,
-  },
-};
+export const CONTRACT_ADDRESS: Record<number, Address> = {
+  [baseSepolia.id]: BASE_CONTRACT_ADDRESS, // 84532
+}

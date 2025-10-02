@@ -385,55 +385,14 @@ const WelcomeScreen: React.FC = () => {
                 : "opacity-0 translate-y-10"
             }`}
           >
-            {/* Animated Logo */}
-            <div className="relative mb-8">
-              <div className="w-32 h-32 mx-auto relative">
-                {/* Outer rotating ring */}
-                <div
-                  className="absolute inset-0 rounded-full border-4 border-transparent bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 animate-spin-slow"
-                  style={{
-                    clipPath:
-                      "polygon(0% 0%, 100% 0%, 100% 75%, 75% 100%, 0% 100%)",
-                  }}
-                />
+            
 
-                {/* Middle pulsing ring */}
-                <div className="absolute inset-2 rounded-full border-2 border-purple-400 animate-pulse opacity-60" />
-
-                {/* Inner core with AI brain */}
-                <div className="absolute inset-4 bg-gradient-to-br from-purple-600 via-blue-600 to-cyan-600 rounded-full flex items-center justify-center animate-glow">
-                  <Brain className="w-12 h-12 text-white animate-pulse" />
-                </div>
-
-                {/* Orbiting AI particles */}
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-3 h-3 bg-gradient-to-r from-purple-400 to-cyan-400 rounded-full flex items-center justify-center"
-                    style={{
-                      left: "50%",
-                      top: "50%",
-                      transform: `translate(-50%, -50%) rotate(${
-                        (360 / 6) * i + time * 2
-                      }deg) translateX(60px)`,
-                      opacity: 0.8,
-                    }}
-                  >
-                    <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Animated Title */}
+            {/* Title */}
             <h1 className="text-6xl md:text-8xl font-black mb-6 leading-tight">
-              <span className="inline-block animate-float bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent">
-                Affiliate
+              <span className="inline-block bg-gradient-to-r from-white via-purple-200 to-cyan-200 bg-clip-text text-transparent">
+                Yearn
               </span>
-              <span
-                className="inline-block animate-float bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent"
-                style={{ animationDelay: "0.5s" }}
-              >
+              <span className="inline-block bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
                 X
               </span>
             </h1>
@@ -509,7 +468,7 @@ const WelcomeScreen: React.FC = () => {
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-12 animate-pulse">
               Why Choose{" "}
               <span className="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                AffiliateX
+                YearnX
               </span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

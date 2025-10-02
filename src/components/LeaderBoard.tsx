@@ -1,5 +1,5 @@
 import { Trophy, Users, Star } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Address } from "viem";
 
 import { useWallet } from "../contexts/hooks/useWallet";
@@ -8,85 +8,139 @@ import { useReferredUserInfo } from "../graphql/hooks/useReferredUserInfo";
 import { ReferralAssigned } from "../graphql/types";
 
 import LeaderBoardTable from "./LeaderBoardTable";
-
 import type { User } from "./LeaderBoardTable";
 
 const LeaderBoard: React.FC = () => {
-  // Only keep track of index in levelsWithData
-  // Instead of selectedLevel, use selectedLevelIndex
-  // Start at first level with data
   const { user } = useWallet();
-  const referralInfo = useReferralInfo();
-  const { level1, level2, level3, level4, level5, getUsersByLevel } =
-    referralInfo;
+
+  // Pull levels; avoid using functions that change identity each render
+  const { level1, level2, level3, level4, level5 } = useReferralInfo();
+
+  // Keep an index into the set of levels that actually have user data
   const [selectedLevelIndex, setSelectedLevelIndex] = useState(0);
+
+  // Memoize raw array of levels so referential equality is stable
+  const referralLevels = useMemo(
+    () => [level1, level2, level3, level4, level5],
+    [level1, level2, level3, level4, level5]
+  );
+
+  // Safe helper: map ReferralAssigned[] -> LeaderBoardTable.User[]
+  const mapReferralToUser = (
+    referrals: ReferralAssigned[],
+    level: number,
+    stakedUsersWithAddedInfo: Record<`0x${string}`, { amount: bigint; starLevel: number }> | null | undefined,
+    isStakedLoading: boolean
+  ): User[] => {
+    return referrals.map((ref, i) => {
+      const key = ref.user?.toLowerCase() as `0x${string}`;
+      const stakeInfo = stakedUsersWithAddedInfo ? stakedUsersWithAddedInfo[key] : undefined;
+
+      return {
+        id: ref.id || `${level}-${i}`,
+        address: ref.user,
+        name: ref.user,
+        phone: "-",
+        email: "-",
+        joinDate: ref.blockTimestamp
+          ? new Date(Number(ref.blockTimestamp) * 1000)
+          : new Date(),
+        stakedVolume: isStakedLoading ? 0 : stakeInfo ? Number(stakeInfo.amount) : 0,
+        totalEarnings: 0,
+        starLevel: isStakedLoading ? 0 : stakeInfo ? stakeInfo.starLevel : 0,
+        status: "active",
+      };
+    });
+  };
+
+  // Determine which level’s addresses we need to fetch extra info for
+  // Build a *stable* list of addresses based on the current selected index.
+  const selectedLevelDataRaw = useMemo(() => {
+    // Find all levels with >0 referrals
+    const withData = referralLevels
+      .map((lvl, idx) => ({
+        idx,
+        level: idx + 1,
+        referrals: lvl?.referrals ?? [],
+        count: lvl?.count ?? 0,
+      }))
+      .filter((l) => (l.referrals?.length ?? 0) > 0);
+
+    return { withData };
+  }, [referralLevels]);
+
+  // Keep selectedLevelIndex within bounds when data shape changes
+  useEffect(() => {
+    if (selectedLevelDataRaw.withData.length === 0) {
+      if (selectedLevelIndex !== 0) setSelectedLevelIndex(0);
+      return;
+    }
+    if (selectedLevelIndex > selectedLevelDataRaw.withData.length - 1) {
+      setSelectedLevelIndex(selectedLevelDataRaw.withData.length - 1);
+    }
+  }, [selectedLevelDataRaw.withData.length, selectedLevelIndex]);
+
+  // Get the actual selected-with-data entry (or undefined)
+  const selectedWithData = useMemo(() => {
+    if (selectedLevelDataRaw.withData.length === 0) return undefined;
+    const safeIndex = Math.max(
+      0,
+      Math.min(selectedLevelIndex, selectedLevelDataRaw.withData.length - 1)
+    );
+    return selectedLevelDataRaw.withData[safeIndex];
+  }, [selectedLevelDataRaw.withData, selectedLevelIndex]);
+
+  // Stable addresses for the selected level only
+  const selectedAddresses: Address[] = useMemo(() => {
+    if (!selectedWithData) return [];
+    return (selectedWithData.referrals ?? []).map((r) => r.user as Address);
+  }, [selectedWithData]);
+
+  // Fetch staked info only for the selected level (memoized addresses)
   const {
     stakedUsersWithAddedInfo,
     totalStakedVolume,
     isLoading: isStakedLoading,
-  } = useReferredUserInfo(
-    getUsersByLevel((selectedLevelIndex + 1) as 1 | 2 | 3 | 4 | 5) as Address[]
-  );
+  } = useReferredUserInfo(selectedAddresses);
 
-  // Helper to map ReferralAssigned[] to table user format
-  const mapReferralToUser = (
-    referrals: ReferralAssigned[],
-    level: number
-  ): User[] => {
-    return referrals.map((ref, i) => ({
-      id: ref.id || `${level}-${i}`,
-      address: ref.user,
-      name: ref.user,
-      phone: "-",
-      email: "-",
-      joinDate: ref.blockTimestamp
-        ? new Date(Number(ref.blockTimestamp) * 1000)
-        : new Date(),
-      stakedVolume: isStakedLoading
-        ? 0
-        : stakedUsersWithAddedInfo &&
-          stakedUsersWithAddedInfo[ref.user.toLowerCase() as `0x${string}`]
-        ? Number(
-            stakedUsersWithAddedInfo[ref.user.toLowerCase() as `0x${string}`]
-              .amount
-          )
-        : 0,
-      totalEarnings: 0,
-      starLevel: isStakedLoading
-        ? 0
-        : stakedUsersWithAddedInfo &&
-          stakedUsersWithAddedInfo[ref.user.toLowerCase() as `0x${string}`]
-        ? stakedUsersWithAddedInfo[ref.user.toLowerCase() as `0x${string}`]
-            .starLevel
-        : 0,
-      status: "active" as "active" | "inactive",
-    }));
-  };
-  // Get real data for levels 1-5
-  const referralLevels = [level1, level2, level3, level4, level5];
-  // Compose levels array: use real data for levels 1-5 if available, else empty
-  const levels = Array.from({ length: 15 }, (_, i) => {
-    if (i < 5 && referralLevels[i] && referralLevels[i].count > 0) {
+  // Build all 15 levels view for the UI (volume shown = aggregated totalStakedVolume)
+  const levels = useMemo(() => {
+    const base = Array.from({ length: 15 }, (_, i) => {
+      const lvlIdx = i; // 0..14
+      const src = referralLevels[lvlIdx];
+
+      if (lvlIdx < 5 && src && (src.count ?? 0) > 0) {
+        return {
+          level: i + 1,
+          count: src.count ?? 0,
+          volume: totalStakedVolume,
+          earnings: 0,
+          users: mapReferralToUser(
+            src.referrals ?? [],
+            i + 1,
+            stakedUsersWithAddedInfo,
+            isStakedLoading
+          ),
+        };
+      }
+
       return {
         level: i + 1,
-        count: referralLevels[i].count,
+        count: 0,
         volume: totalStakedVolume,
         earnings: 0,
-        users: mapReferralToUser(referralLevels[i].referrals, i + 1),
+        users: [] as User[],
       };
-    }
-    // fallback to empty for levels > 5 or if no data
-    return {
-      level: i + 1,
-      count: 0,
-      volume: totalStakedVolume,
-      earnings: 0,
-      users: [],
-    };
-  });
+    });
 
-  // Only keep levels with user data
-  const levelsWithData = levels.filter((l) => l.users && l.users.length > 0);
+    return base;
+  }, [referralLevels, totalStakedVolume, stakedUsersWithAddedInfo, isStakedLoading]);
+
+  // Only levels with user data
+  const levelsWithData = useMemo(
+    () => levels.filter((l) => (l.users?.length ?? 0) > 0),
+    [levels]
+  );
 
   // If no levels have data, show a message
   if (levelsWithData.length === 0) {
@@ -101,12 +155,10 @@ const LeaderBoard: React.FC = () => {
     );
   }
 
-  // Clamp selectedLevelIndex to available range
-  const safeSelectedLevelIndex = Math.max(
-    0,
-    Math.min(selectedLevelIndex, levelsWithData.length - 1)
-  );
-  const selectedLevelData = levelsWithData[safeSelectedLevelIndex];
+  // Safe read of currently selected level
+  const selectedLevelData = levelsWithData[
+    Math.max(0, Math.min(selectedLevelIndex, levelsWithData.length - 1))
+  ];
 
   const handlePrevLevel = () => {
     setSelectedLevelIndex((prev) => (prev > 0 ? prev - 1 : prev));
@@ -148,10 +200,10 @@ const LeaderBoard: React.FC = () => {
         <div className="flex justify-center mb-6 space-x-6">
           <button
             onClick={handlePrevLevel}
-            disabled={safeSelectedLevelIndex === 0}
+            disabled={selectedLevelIndex === 0}
             className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center space-x-2 shadow-sm
               ${
-                safeSelectedLevelIndex === 0
+                selectedLevelIndex === 0
                   ? "bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed border border-gray-200 dark:border-gray-700"
                   : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white transform hover:-translate-y-0.5 hover:shadow-md"
               }`}
@@ -180,10 +232,10 @@ const LeaderBoard: React.FC = () => {
 
           <button
             onClick={handleNextLevel}
-            disabled={safeSelectedLevelIndex === levelsWithData.length - 1}
+            disabled={selectedLevelIndex === levelsWithData.length - 1}
             className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center space-x-2 shadow-sm
               ${
-                safeSelectedLevelIndex === levelsWithData.length - 1
+                selectedLevelIndex === levelsWithData.length - 1
                   ? "bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed border border-gray-200 dark:border-gray-700"
                   : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white transform hover:-translate-y-0.5 hover:shadow-md"
               }`}

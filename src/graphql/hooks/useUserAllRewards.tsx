@@ -1,10 +1,10 @@
-import { Address, formatEther } from "viem";
+// src/graphql/hooks/useUserAllRewards.tsx
+import { formatEther } from "viem";
 import { useAccount } from "wagmi";
-
-import { useGraphQLQuery } from "../hooks";
+import { useGraphQLQuery } from "../hooks/useGraphQL";
 import { GET_USER_ALL_REWARDS } from "../queries";
-import { UserAllRewardsData } from "../types";
 
+// Keep your public API the same
 export interface UseUserAllRewardsOptions {
   first?: number;
   skip?: number;
@@ -12,7 +12,7 @@ export interface UseUserAllRewardsOptions {
 }
 
 export interface UseUserAllRewardsReturn {
-  data: UserAllRewardsData | undefined;
+  data: any | undefined;
   loading: boolean;
   error: unknown;
   refetch: () => void;
@@ -28,19 +28,20 @@ export interface UseUserAllRewardsReturn {
   totalStarRewardsClaimed: string;
   totalRewardsEarnedByUser: number;
   // Helper functions
-  getGoldenStarRewardsByDate: (
-    startDate: Date,
-    endDate: Date
-  ) => UserAllRewardsData["goldenStarRewardClaimeds"];
-  getReferralRewardsByDate: (
-    startDate: Date,
-    endDate: Date
-  ) => UserAllRewardsData["referralRewardDistributeds"];
-  getStarRewardsByDate: (
-    startDate: Date,
-    endDate: Date
-  ) => UserAllRewardsData["starRewardClaimeds"];
+  getGoldenStarRewardsByDate: (startDate: Date, endDate: Date) => any[];
+  getReferralRewardsByDate: (startDate: Date, endDate: Date) => any[];
+  getStarRewardsByDate: (startDate: Date, endDate: Date) => any[];
 }
+
+// safe BigInt from subgraph strings
+const toWei = (v: any) => {
+  try {
+    if (typeof v === "bigint") return v;
+    if (typeof v === "number") return BigInt(Math.trunc(v));
+    if (typeof v === "string") return BigInt(v);
+  } catch {}
+  return 0n;
+};
 
 export const useUserAllRewards = (
   options: UseUserAllRewardsOptions = {}
@@ -48,74 +49,78 @@ export const useUserAllRewards = (
   const { address } = useAccount();
   const { first = 100, skip = 0, skipQuery = false } = options;
 
-  const { data, loading, error, refetch } = useGraphQLQuery<UserAllRewardsData>(
+  const userId = (address ?? "").toLowerCase();
+
+  const { data, loading, error, refetch } = useGraphQLQuery<any>(
     GET_USER_ALL_REWARDS,
     {
       variables: {
-        user: address as Address,
+        user: userId,
         first,
         skip,
       },
-      skip: !address || skipQuery,
+      skip: !userId || skipQuery,
+      fetchPolicy: "cache-and-network",
     }
   );
 
-  // Compute totals
-  const totalGoldenStarRewardsClaimed =
-    data?.goldenStarRewardClaimeds
-      ?.reduce((sum, reward) => {
-        return sum + Number(formatEther(reward.amount as unknown as bigint));
-      }, 0)
-      .toString() || "0";
+  // --- Normalize result arrays (support old & new names) ---
+  const goldenStarClaimed =
+    data?.goldenStarRewardClaimeds ?? data?.goldenStarPayouts ?? [];
 
-  const totalGoldenStarRewardsDistributed =
-    data?.goldenStarRewardDistributeds
-      ?.reduce((sum, reward) => {
-        return sum + Number(formatEther(reward.amount as unknown as bigint));
-      }, 0)
-      .toString() || "0";
+  const starClaimed =
+    data?.starRewardClaimeds ?? data?.starRewardPayouts ?? [];
 
-  const totalReferralRewardsDistributed =
-    data?.referralRewardDistributeds
-      ?.reduce((sum, reward) => {
-        return sum + Number(formatEther(reward.amount as unknown as bigint));
-      }, 0)
-      .toString() || "0";
+  const referralClaimed =
+    data?.referralRewardsClaimeds ?? []; // old schema only
 
+  const referralDistributed =
+    data?.referralRewardDistributeds ?? data?.referralEarnings ?? [];
+
+  const goldenStarDistributed = data?.goldenStarRewardDistributeds ?? []; // often not present in new schema
+  const starDistributed = data?.starRewardDistributeds ?? []; // often not present in new schema
+
+  // helpers
+  const sumEther = (arr: any[], field = "amount") =>
+    arr
+      .reduce((sum, r) => sum + Number(formatEther(toWei(r?.[field]))), 0)
+      .toString();
+
+  // --- Totals (fall back to 0 where the new schema dropped a stream) ---
+  const totalGoldenStarRewardsClaimed = sumEther(goldenStarClaimed, "amount");
+  const totalGoldenStarRewardsDistributed = sumEther(
+    goldenStarDistributed,
+    "amount"
+  );
+
+  const totalReferralRewardsDistributed = sumEther(
+    referralDistributed,
+    // new schema typically uses `amount`
+    "amount"
+  );
+
+  // In the old schema, claims split Y/S/P amounts. In the new schema we don’t have that.
+  // Be defensive: if the fields exist, sum them; else return "0".
   const totalReferralRewardsClaimed = {
-    yAmount:
-      data?.referralRewardsClaimeds
-        ?.reduce((sum, reward) => {
-          return sum + Number(formatEther(reward.yAmount as unknown as bigint));
-        }, 0)
-        .toString() || "0",
-    sAmount:
-      data?.referralRewardsClaimeds
-        ?.reduce((sum, reward) => {
-          return sum + Number(formatEther(reward.sAmount as unknown as bigint));
-        }, 0)
-        .toString() || "0",
-    pAmount:
-      data?.referralRewardsClaimeds
-        ?.reduce((sum, reward) => {
-          return sum + Number(formatEther(reward.pAmount as unknown as bigint));
-        }, 0)
-        .toString() || "0",
+    yAmount: referralClaimed.length
+      ? referralClaimed
+          .reduce((sum: number, r: any) => sum + Number(formatEther(toWei(r?.yAmount))), 0)
+          .toString()
+      : "0",
+    sAmount: referralClaimed.length
+      ? referralClaimed
+          .reduce((sum: number, r: any) => sum + Number(formatEther(toWei(r?.sAmount))), 0)
+          .toString()
+      : "0",
+    pAmount: referralClaimed.length
+      ? referralClaimed
+          .reduce((sum: number, r: any) => sum + Number(formatEther(toWei(r?.pAmount))), 0)
+          .toString()
+      : "0",
   };
 
-  const totalStarRewardsClaimed =
-    data?.starRewardClaimeds
-      ?.reduce((sum, reward) => {
-        return sum + Number(formatEther(reward.amount as unknown as bigint));
-      }, 0)
-      .toString() || "0";
-
-  const totalStarRewardsDistributed =
-    data?.starRewardDistributeds
-      ?.reduce((sum, reward) => {
-        return sum + Number(formatEther(reward.amount as unknown as bigint));
-      }, 0)
-      .toString() || "0";
+  const totalStarRewardsClaimed = sumEther(starClaimed, "amount");
+  const totalStarRewardsDistributed = sumEther(starDistributed, "amount");
 
   const totalRewardsEarnedByUser =
     Number(totalGoldenStarRewardsClaimed) +
@@ -127,50 +132,49 @@ export const useUserAllRewards = (
     Number(totalReferralRewardsClaimed.sAmount) +
     Number(totalReferralRewardsClaimed.pAmount);
 
-  // Helper functions for filtering by date
+  // --- Date range filters (use `timestamp`, fallback to `blockTimestamp`) ---
+  const inRange = (tsSec: string | number | undefined, start: number, end: number) => {
+    if (tsSec == null) return false;
+    const n =
+      typeof tsSec === "string"
+        ? Number(tsSec)
+        : typeof tsSec === "number"
+        ? tsSec
+        : Number(tsSec);
+    return n >= start && n <= end;
+  };
+
   const getGoldenStarRewardsByDate = (startDate: Date, endDate: Date) => {
-    if (!data?.goldenStarRewardClaimeds) return [];
-
-    const startTimestamp = Math.floor(startDate.getTime() / 1000).toString();
-    const endTimestamp = Math.floor(endDate.getTime() / 1000).toString();
-
-    return data.goldenStarRewardClaimeds.filter((reward) => {
-      const timestamp = parseInt(reward.blockTimestamp);
-      return (
-        timestamp >= parseInt(startTimestamp) &&
-        timestamp <= parseInt(endTimestamp)
-      );
-    });
+    const start = Math.floor(startDate.getTime() / 1000);
+    const end = Math.floor(endDate.getTime() / 1000);
+    const arr = goldenStarClaimed;
+    return arr.filter(
+      (r: any) =>
+        inRange(r?.timestamp, start, end) ||
+        inRange(r?.blockTimestamp, start, end)
+    );
   };
 
   const getReferralRewardsByDate = (startDate: Date, endDate: Date) => {
-    if (!data?.referralRewardDistributeds) return [];
-
-    const startTimestamp = Math.floor(startDate.getTime() / 1000).toString();
-    const endTimestamp = Math.floor(endDate.getTime() / 1000).toString();
-
-    return data.referralRewardDistributeds.filter((reward) => {
-      const timestamp = parseInt(reward.blockTimestamp);
-      return (
-        timestamp >= parseInt(startTimestamp) &&
-        timestamp <= parseInt(endTimestamp)
-      );
-    });
+    const start = Math.floor(startDate.getTime() / 1000);
+    const end = Math.floor(endDate.getTime() / 1000);
+    const arr = referralDistributed;
+    return arr.filter(
+      (r: any) =>
+        inRange(r?.timestamp, start, end) ||
+        inRange(r?.blockTimestamp, start, end)
+    );
   };
 
   const getStarRewardsByDate = (startDate: Date, endDate: Date) => {
-    if (!data?.starRewardClaimeds) return [];
-
-    const startTimestamp = Math.floor(startDate.getTime() / 1000).toString();
-    const endTimestamp = Math.floor(endDate.getTime() / 1000).toString();
-
-    return data.starRewardClaimeds.filter((reward) => {
-      const timestamp = parseInt(reward.blockTimestamp);
-      return (
-        timestamp >= parseInt(startTimestamp) &&
-        timestamp <= parseInt(endTimestamp)
-      );
-    });
+    const start = Math.floor(startDate.getTime() / 1000);
+    const end = Math.floor(endDate.getTime() / 1000);
+    const arr = starClaimed;
+    return arr.filter(
+      (r: any) =>
+        inRange(r?.timestamp, start, end) ||
+        inRange(r?.blockTimestamp, start, end)
+    );
   };
 
   return {

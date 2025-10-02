@@ -1,23 +1,27 @@
-// Export Apollo Client
-export { apolloClient } from "./client";
+// src/graphql/index.ts
 
-// Export Provider
+// --- Client / Provider ---
+export { apolloClient } from "./client";
 export { GraphQLProvider } from "./provider";
 
-// Export Hooks
+// --- Generic GraphQL hooks ---
 export {
   useGraphQLQuery,
   useGraphQLMutation,
   useGraphQLLazyQuery,
   useGraphQLLoading,
-} from "./hooks";
+} from "./hooks/useGraphQL";
 
-// Export Custom Hooks
+// --- Custom hooks (subgraph-aware) ---
 export { useUserStakes } from "./hooks/useUserStakes";
 export { useUserAllRewards } from "./hooks/useUserAllRewards";
 
-// Export Types
+// --- Generated & local types ---
 export * from "./types";
 
-// Export Queries and Mutations
+// --- Queries ---
 export * from "./queries";
+
+// --- Back-compat aliases for old imports ---
+export { GET_PACKAGES as GET_PACKAGES_CREATED } from "./queries";
+export { GET_REFERRER_ASSIGNMENTS, GET_USER_ALL_REWARDS } from "./queries";

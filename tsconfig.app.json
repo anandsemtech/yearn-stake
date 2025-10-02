@@ -18,7 +18,20 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* ✅ Existing */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
+    /* ✅ Add these for JSON imports */
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* Optional but nice for Vite */
+    "types": ["vite/client"]
   },
   "include": ["src"]
 }

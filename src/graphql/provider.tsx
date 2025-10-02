@@ -1,14 +1,8 @@
+// src/graphql/provider.tsx
+import React from "react";
 import { ApolloProvider } from "@apollo/client";
-import { ReactNode } from "react";
-
 import { apolloClient } from "./client";
 
-interface GraphQLProviderProps {
-  children: ReactNode;
-}
-
-export const GraphQLProvider = ({ children }: GraphQLProviderProps) => {
+export const GraphQLProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   return <ApolloProvider client={apolloClient}>{children}</ApolloProvider>;
 };
-
-export default GraphQLProvider;

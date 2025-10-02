@@ -1,7 +1,7 @@
 import { createContext } from "react";
 
 import { GET_PACKAGES_CREATED, useGraphQLQuery } from "../graphql";
-import { PackageCreated } from "../graphql/types";
+import { Package } from "@/graphql/__generated__/types";
 
 interface AppContextType {
   activePackages: PackageCreated[];
@@ -16,7 +16,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const { data: activePackages, loading: isActivePackagesLoading } =
     useGraphQLQuery<{
-      packageCreateds: Array<PackageCreated>;
+      packages: Array<Package>;
     }>(GET_PACKAGES_CREATED, {
       variables: {
         where: {
@@ -27,8 +27,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   return (
     <AppContext.Provider
       value={{
-        activePackages: activePackages?.packageCreateds || [],
-        activePackagesCount: activePackages?.packageCreateds?.length || 0,
+        activePackages: activePackages?.packages || [],
+        activePackagesCount: activePackages?.packages?.length || 0,
         isActivePackagesLoading,
       }}
     >
