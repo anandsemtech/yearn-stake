@@ -1,7 +1,8 @@
 // src/components/StakingModal.tsx
 import { X, DollarSign, Calendar, TrendingUp, Zap } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Address, Hex, parseUnits } from "viem";
+import type { Address, Hex } from "viem";
+import { parseUnits } from "viem";
 import {
   useAccount,
   usePublicClient as useWagmiPublicClient,
@@ -23,17 +24,10 @@ import {
    Debug helpers (toggle-able)
 =========================== */
 const DBG = false;
-const log = (...a: any[]) => {
-  if (DBG) console.log(...a);
-};
-const warn = (...a: any[]) => {
-  if (DBG) console.warn(...a);
-};
-const err = (...a: any[]) => {
-  if (DBG) console.error(...a);
-};
-const short = (s?: string) =>
-  s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s;
+const log = (...a: any[]) => { if (DBG) console.log(...a); };
+const warn = (...a: any[]) => { if (DBG) console.warn(...a); };
+const err  = (...a: any[]) => { if (DBG) console.error(...a); };
+const short = (s?: string) => (s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s);
 const fmt = (x: bigint) => x.toString();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -77,7 +71,7 @@ const pYearn = (import.meta.env.VITE_PYEARN_TOKEN_ADDRESS ||
 const stakingContract = (import.meta.env.VITE_BASE_CONTRACT_ADDRESS ??
   "") as Address;
 
-// ✅ Always use env default referrer
+// ✅ Always use env default referrer (your requirement)
 const DEFAULT_REFERRER = (import.meta.env.VITE_DEFAULT_REFERRER ||
   "0xD2Dd094539cfF0F279078181E43A47fC9764aC0D") as Address;
 
@@ -112,34 +106,10 @@ const ERC20_ABI = [
 ] as const;
 
 const ERC20_VIEW_ABI = [
-  {
-    type: "function",
-    name: "decimals",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "uint8" }],
-  },
-  {
-    type: "function",
-    name: "symbol",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "string" }],
-  },
-  {
-    type: "function",
-    name: "name",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "string" }],
-  },
-  {
-    type: "function",
-    name: "balanceOf",
-    stateMutability: "view",
-    inputs: [{ name: "owner", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
+  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
+  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "owner", type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
 /* ===========================
@@ -209,10 +179,41 @@ const REF_VALID_ABI = [
 ] as const;
 
 /* ===========================
+   Local safe error helpers
+=========================== */
+function safeShowEvmError(e: unknown, ctx: string) {
+  try {
+    showEvmError(e, { context: ctx });
+  } catch (inner) {
+    console.error("showEvmError failed:", inner);
+    const msg =
+      (e as any)?.shortMessage ||
+      (e as any)?.message ||
+      "Something went wrong";
+    window.dispatchEvent(
+      new CustomEvent("toast:error", {
+        detail: {
+          title: ctx,
+          description: String(msg),
+          severity: "error",
+        },
+      })
+    );
+  }
+}
+function safeNormalizeMsg(e: unknown, fallback = "Something went wrong") {
+  try {
+    const n = normalizeEvmError(e);
+    return n?.message || fallback;
+  } catch {
+    return (e as any)?.shortMessage || (e as any)?.message || fallback;
+  }
+}
+
+/* ===========================
    Utils
 =========================== */
-const addCommas = (n: string) =>
-  n.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const addCommas = (n: string) => n.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 const prettyFixed = (v: bigint, decimals: number, places = 2) => {
   if (decimals <= 0) return addCommas(v.toString());
   const s = v.toString().padStart(decimals + 1, "0");
@@ -259,28 +260,51 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       }),
     []
   );
-
   const publicClient = wagmiPublic ?? fallbackPublic;
   const { data: walletClient } = useWalletClient();
 
   const [chainIssue, setChainIssue] = useState<string | null>(null);
+
+  // Authoritative chain check from the wallet (fixes false warnings)
   useEffect(() => {
-    if (!isConnected) return;
-    setChainIssue(
-      connectedChainId && connectedChainId !== bsc.id
-        ? "Please switch your wallet to BSC Mainnet"
-        : null
-    );
-  }, [isConnected, connectedChainId]);
+    let stop = false;
+
+    (async () => {
+      if (!isConnected || !walletClient) {
+        if (!stop) setChainIssue(null);
+        return;
+      }
+      const targetHex = `0x${bsc.id.toString(16)}`.toLowerCase();
+      try {
+        const hex = (await walletClient.request({ method: "eth_chainId" })) as string;
+        const onBsc = hex?.toLowerCase() === targetHex;
+        if (!stop) setChainIssue(onBsc ? null : "Please switch your wallet to BSC Mainnet");
+      } catch {
+        if (!stop) setChainIssue("Please switch your wallet to BSC Mainnet");
+      }
+    })();
+
+    // small initial poll to clear races after a switch
+    const t = setInterval(async () => {
+      if (!isConnected || !walletClient) return;
+      try {
+        const hex = (await walletClient.request({ method: "eth_chainId" })) as string;
+        if (hex?.toLowerCase() === `0x${bsc.id.toString(16)}`.toLowerCase()) {
+          setChainIssue(null);
+          clearInterval(t);
+        }
+      } catch {}
+    }, 600);
+
+    return () => { stop = true; clearInterval(t); };
+  }, [isConnected, walletClient]);
 
   async function ensureBsc(): Promise<void> {
     if (!walletClient) throw new Error("Connect wallet.");
     const targetHex = `0x${bsc.id.toString(16)}`;
     let currentHex: string | null = null;
     try {
-      currentHex = (await walletClient.request({
-        method: "eth_chainId",
-      })) as string;
+      currentHex = (await walletClient.request({ method: "eth_chainId" })) as string;
     } catch {}
     if (currentHex?.toLowerCase() === targetHex.toLowerCase()) return;
 
@@ -291,32 +315,24 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       });
     } catch (e: any) {
       const needsAdd =
-        e?.code === 4902 ||
-        /not added|unrecognized chain/i.test(e?.message || "");
+        e?.code === 4902 || /not added|unrecognized chain/i.test(e?.message || "");
       if (!needsAdd) throw new Error("Please switch your wallet to BSC Mainnet.");
       await walletClient.request({
         method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: targetHex,
-            chainName: "BSC Mainnet",
-            rpcUrls: [
-              import.meta.env.VITE_BSC_RPC_URL ||
-                "https://bsc-dataseed1.bnbchain.org",
-            ],
-            nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-            blockExplorerUrls: ["https://bscscan.com"],
-          },
-        ],
+        params: [{
+          chainId: targetHex,
+          chainName: "BSC Mainnet",
+          rpcUrls: [import.meta.env.VITE_BSC_RPC_URL || "https://bsc-dataseed1.bnbchain.org"],
+          nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+          blockExplorerUrls: ["https://bscscan.com"],
+        }],
       });
       await walletClient.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: targetHex }],
       });
     }
-    const afterHex = (await walletClient.request({
-      method: "eth_chainId",
-    })) as string;
+    const afterHex = (await walletClient.request({ method: "eth_chainId" })) as string;
     if (afterHex?.toLowerCase() !== targetHex.toLowerCase())
       throw new Error("Please switch your wallet to BSC Mainnet.");
   }
@@ -390,47 +406,16 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         const meta = await Promise.all(
           addrs.map(async (addr) => {
             const [dec, sym, nam, bal] = await Promise.all([
-              publicClient.readContract({
-                address: addr,
-                abi: ERC20_VIEW_ABI,
-                functionName: "decimals",
-              }) as Promise<number>,
-              publicClient.readContract({
-                address: addr,
-                abi: ERC20_VIEW_ABI,
-                functionName: "symbol",
-              }) as Promise<string>,
-              publicClient.readContract({
-                address: addr,
-                abi: ERC20_VIEW_ABI,
-                functionName: "name",
-              }) as Promise<string>,
-              publicClient.readContract({
-                address: addr,
-                abi: ERC20_VIEW_ABI,
-                functionName: "balanceOf",
-                args: [address],
-              }) as Promise<bigint>,
+              publicClient.readContract({ address: addr, abi: ERC20_VIEW_ABI, functionName: "decimals" }) as Promise<number>,
+              publicClient.readContract({ address: addr, abi: ERC20_VIEW_ABI, functionName: "symbol" }) as Promise<string>,
+              publicClient.readContract({ address: addr, abi: ERC20_VIEW_ABI, functionName: "name" }) as Promise<string>,
+              publicClient.readContract({ address: addr, abi: ERC20_VIEW_ABI, functionName: "balanceOf", args: [address] }) as Promise<bigint>,
             ]);
-            return {
-              address: addr,
-              symbol: sym,
-              name: nam,
-              decimals: dec,
-              balance: bal,
-            };
+            return { address: addr, symbol: sym, name: nam, decimals: dec, balance: bal };
           })
         );
         setTokenMeta(meta);
-        log(
-          "tokenMeta",
-          meta.map((m) => ({
-            sym: m.symbol,
-            dec: m.decimals,
-            bal: m.balance.toString(),
-            addr: short(m.address),
-          }))
-        );
+        log("tokenMeta", meta.map((m) => ({ sym: m.symbol, dec: m.decimals, bal: m.balance.toString(), addr: short(m.address) })));
       } catch (e) {
         err("token meta read failed", e);
         setTokenMeta(null);
@@ -555,13 +540,21 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     if (envIssue) return envIssue;
 
     if (!address) return "Connect wallet.";
-    if (connectedChainId && connectedChainId !== bsc.id)
+
+    // Use wallet's eth_chainId (authoritative)
+    try {
+      if (walletClient) {
+        const hex = (await walletClient.request({ method: "eth_chainId" })) as string;
+        const onBsc = hex?.toLowerCase() === `0x${bsc.id.toString(16)}`.toLowerCase();
+        if (!onBsc) return "Please switch your wallet to BSC Mainnet.";
+      }
+    } catch {
       return "Please switch your wallet to BSC Mainnet.";
+    }
 
     const sumPct = selected[0] + selected[1] + selected[2];
     if (sumPct !== 100) return "Composition must sum to 100%.";
-    if (amtsAll[0] + amtsAll[1] + amtsAll[2] === 0n)
-      return "Total amount is zero.";
+    if (amtsAll[0] + amtsAll[1] + amtsAll[2] === 0n) return "Total amount is zero.";
 
     const paused = await isPaused();
     if (paused === true) return "Contract is paused.";
@@ -569,10 +562,9 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     const onchainPkg = await readPackageInfo(BigInt(pkg.id));
     if (onchainPkg?.isActive === false) return "Package is inactive on-chain.";
 
-    // Enforce on-chain min/multiple against TOTAL (adjust if your contract expects per-token rules)
+    // Enforce on-chain min/multiple against TOTAL (adjust if contract expects per-token)
     if (onchainPkg?.minStakeAmount) {
-      const totalWei =
-        (amtsAll[0] ?? 0n) + (amtsAll[1] ?? 0n) + (amtsAll[2] ?? 0n);
+      const totalWei = (amtsAll[0] ?? 0n) + (amtsAll[1] ?? 0n) + (amtsAll[2] ?? 0n);
       if (totalWei < onchainPkg.minStakeAmount) {
         return `Total stake below on-chain minimum: need ${onchainPkg.minStakeAmount.toString()}`;
       }
@@ -585,11 +577,9 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       }
     }
 
-    // Validate referrer if contract requires it
     if (!finalRef) return "Internal: missing default referrer.";
     const refOk = await isReferrerValid(finalRef);
-    if (!refOk)
-      return "Referrer is not eligible (must be whitelisted or have staked before).";
+    if (!refOk) return "Referrer is not eligible (must be whitelisted or have staked before).";
 
     // Balance checks
     const names = tokenMeta?.map((m) => m.symbol) ?? ["YY", "SY", "PY"];
@@ -603,9 +593,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         args: [address],
       })) as bigint;
       if (bal < want)
-        return `${names[i]}: insufficient balance. Need ${fmt(
-          want
-        )}, have ${fmt(bal)}`;
+        return `${names[i]}: insufficient balance. Need ${fmt(want)}, have ${fmt(bal)}`;
     }
     return null;
   }
@@ -648,9 +636,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     try {
       await doApprove(target);
     } catch {
-      try {
-        await doApprove(0n);
-      } catch {}
+      try { await doApprove(0n); } catch {}
       await doApprove(target);
     }
   }
@@ -670,7 +656,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       const isYY = eqAddr(token, yYearn);
       const target = isYY && !USE_MAX_ALLOWANCE_FOR_YY ? need : MAX_UINT256;
 
-      if (before >= need && (!isYY || USE_MAX_ALLOWANCE_FOR_YY ? before > 0n : true)) {
+      if (before >= need && (!isYY || (USE_MAX_ALLOWANCE_FOR_YY ? before > 0n : true))) {
         continue; // sufficient
       }
 
@@ -680,25 +666,17 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       let ok = false;
       for (let tries = 0; tries < ALLOWANCE_POLL_ATTEMPTS; tries++) {
         const a = await readAllowance(owner, token, spender);
-        if (a >= need) {
-          ok = true;
-          break;
-        }
+        if (a >= need) { ok = true; break; }
         await sleep(ALLOWANCE_POLL_DELAY_MS);
       }
       if (!ok) {
         const a = await readAllowance(owner, token, spender);
-        throw new Error(
-          `${
-            eqAddr(token, yYearn) ? "YY" : eqAddr(token, sYearn) ? "SY" : "PY"
-          } approval not sufficient. Have ${a.toString()}, need ${need.toString()}`
-        );
+        throw new Error(`${eqAddr(token, yYearn) ? "YY" : eqAddr(token, sYearn) ? "SY" : "PY"} approval not sufficient. Have ${a.toString()}, need ${need.toString()}`);
       }
     }
   }
 
   function resolveFinalReferrer(): Address {
-    // ✅ Always return the env default referrer
     return DEFAULT_REFERRER;
   }
 
@@ -730,7 +708,9 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       setStakeTxHash(hash);
       return hash;
     } catch (e: any) {
-      const msg = e?.shortMessage || e?.message || "Stake simulation failed";
+      // show decoded revert if available, but keep us safe from UI helper crashes
+      safeShowEvmError(e, "Stake");
+      const msg = safeNormalizeMsg(e, e?.shortMessage || e?.message || "Stake simulation failed");
       throw new Error(msg);
     }
   }
@@ -789,8 +769,8 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         window.dispatchEvent(new CustomEvent("stakes:changed"));
         onClose();
       } catch (e) {
-        showEvmError(e, { context: "Stake" });
-        setActionMsg(normalizeEvmError(e).message);
+        safeShowEvmError(e, "Stake");
+        setActionMsg(safeNormalizeMsg(e));
       } finally {
         stakeWaitRef.current = null;
       }
@@ -833,8 +813,8 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       lastStakeKeyRef.current = null;
       setIsApproving(false);
       setIsStaking(false);
-      showEvmError(e, { context: "Stake" });
-      setActionMsg(normalizeEvmError(e).message);
+      safeShowEvmError(e, "Stake");
+      setActionMsg(safeNormalizeMsg(e));
     }
   }
 
@@ -957,9 +937,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Minimum: {prettyUSD(pkg.minAmount)}
-              {pkg.stakeMultiple
-                ? ` • Multiples of ${prettyUSD(pkg.stakeMultiple)}`
-                : ""}
+              {pkg.stakeMultiple ? ` • Multiples of ${prettyUSD(pkg.stakeMultiple)}` : ""}
             </p>
           </div>
 
@@ -970,11 +948,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
                 Choose a composition
               </h4>
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {compLoading
-                  ? "Loading…"
-                  : compError
-                  ? "Failed to load"
-                  : `${validCompositions.length} options`}
+                {compLoading ? "Loading…" : compError ? "Failed to load" : `${validCompositions.length} options`}
               </span>
             </div>
             <div className="flex flex-wrap gap-2.5">
@@ -1003,76 +977,56 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
               Allocation
             </h3>
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div
-                className={`rounded-lg px-2 py-2 border ${
-                  needWei[0] > haveWei[0]
+              <div className={`rounded-lg px-2 py-2 border ${ (amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n)
                     ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
                     : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
-                }`}
-              >
-                <div className="text-[11px] uppercase tracking-wide text-gray-500">
-                  YYEARN
-                </div>
+                }`}>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500">YYEARN</div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Need {formatWei(needWei[0], decs[0])}
+                  Need {formatWei(amtsAll[0] ?? 0n, decs[0])}
                 </div>
                 <div className="mt-1 text-[11px]">
                   <span className="text-gray-500">Have </span>
-                  <span className="font-medium">
-                    {formatWei(haveWei[0], decs[0])}
-                  </span>
+                  <span className="font-medium">{formatWei(haveWei[0], decs[0])}</span>
                 </div>
               </div>
-              <div
-                className={`rounded-lg px-2 py-2 border ${
-                  needWei[1] > haveWei[1]
+              <div className={`rounded-lg px-2 py-2 border ${ (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n)
                     ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
                     : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
-                }`}
-              >
-                <div className="text-[11px] uppercase tracking-wide text-gray-500">
-                  SYEARN
-                </div>
+                }`}>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500">SYEARN</div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Need {formatWei(needWei[1], decs[1])}
+                  Need {formatWei(amtsAll[1] ?? 0n, decs[1])}
                 </div>
                 <div className="mt-1 text-[11px]">
                   <span className="text-gray-500">Have </span>
-                  <span className="font-medium">
-                    {formatWei(haveWei[1], decs[1])}
-                  </span>
+                  <span className="font-medium">{formatWei(haveWei[1], decs[1])}</span>
                 </div>
               </div>
-              <div
-                className={`rounded-lg px-2 py-2 border ${
-                  needWei[2] > haveWei[2]
+              <div className={`rounded-lg px-2 py-2 border ${ (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n)
                     ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
                     : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
-                }`}
-              >
-                <div className="text-[11px] uppercase tracking-wide text-gray-500">
-                  PYEARN
-                </div>
+                }`}>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500">PYEARN</div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Need {formatWei(needWei[2], decs[2])}
+                  Need {formatWei(amtsAll[2] ?? 0n, decs[2])}
                 </div>
                 <div className="mt-1 text-[11px]">
                   <span className="text-gray-500">Have </span>
-                  <span className="font-medium">
-                    {formatWei(haveWei[2], decs[2])}
-                  </span>
+                  <span className="font-medium">{formatWei(haveWei[2], decs[2])}</span>
                 </div>
               </div>
             </div>
-            {!hasSufficientBalances && (
+            {( (amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n) ||
+               (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n) ||
+               (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n) ) && (
               <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">
-                Insufficient balance for the selected allocation. Reduce amount or
-                adjust composition.
+                Insufficient balance for the selected allocation. Reduce amount or adjust composition.
               </p>
             )}
           </div>
 
-          {/* (Referrer UI removed entirely; default referrer is used under the hood) */}
+          {/* (Referrer UI removed; default referrer is used under the hood) */}
 
           {/* Earnings (informational) */}
           <div className="rounded-xl p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-white/10">
@@ -1080,17 +1034,19 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
               Projected Annual Earnings
             </h3>
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {prettyUSD(projectedEarnings)}
+              {prettyUSD(amountNum * (pkg.apy / 100))}
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Based on {pkg.apy}% APY
-            </p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Based on {pkg.apy}% APY</p>
           </div>
 
-          {chainIssue && (
-            <div className="text-xs text-amber-600 dark:text-amber-400">
-              {chainIssue}
+          {DBG && (
+            <div className="text-xs text-gray-500">
+              connectedChainId(wagmi): {connectedChainId ?? "N/A"}
             </div>
+          )}
+
+          {chainIssue && (
+            <div className="text-xs text-amber-600 dark:text-amber-400">{chainIssue}</div>
           )}
           {actionMsg && <div className="text-sm text-rose-500">{actionMsg}</div>}
         </div>
@@ -1100,9 +1056,26 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleApproveAndStake}
-              disabled={mainDisabled}
+              disabled={
+                isApproving ||
+                isStaking ||
+                !!stakeTxHash ||
+                !address ||
+                amountNum < pkg.minAmount ||
+                validCompositions.length === 0 ||
+                !!chainIssue ||
+                (amtsAll[0] ?? 0n) + (amtsAll[1] ?? 0n) + (amtsAll[2] ?? 0n) === 0n ||
+                ((amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n) ||
+                 (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n) ||
+                 (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n))
+              }
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
-                mainDisabled
+                (isApproving || isStaking || !!stakeTxHash || !address || amountNum < pkg.minAmount ||
+                 validCompositions.length === 0 || !!chainIssue ||
+                 (amtsAll[0] ?? 0n) + (amtsAll[1] ?? 0n) + (amtsAll[2] ?? 0n) === 0n ||
+                 ((amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n) ||
+                  (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n) ||
+                  (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n)))
                   ? "bg-gradient-to-r from-violet-900/30 to-indigo-900/30 text-gray-400 cursor-not-allowed"
                   : "bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white shadow-sm"
               }`}
@@ -1112,7 +1085,17 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
               ) : (
                 <Zap className="w-4 h-4" />
               )}
-              <span>{mainBtnText}</span>
+              <span>
+                {isApproving
+                  ? "Approving…"
+                  : isStaking && !stakeTxHash
+                  ? "Sending stake…"
+                  : !!stakeTxHash
+                  ? "Confirming…"
+                  : stakeConfirmed
+                  ? "Staked"
+                  : "Approve & Stake"}
+              </span>
             </button>
           </div>
         </div>
