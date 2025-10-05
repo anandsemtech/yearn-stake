@@ -111,7 +111,7 @@ export const erc20Abi = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const yearnTogetherAbi = [
   { type: 'error', inputs: [], name: 'APRAlreadyClaimed' },
@@ -880,6 +880,16 @@ export const yearnTogetherAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'fundRewardsPot',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [{ name: 'packageId', internalType: 'uint16', type: 'uint16' }],
     name: 'getClaimableInterval',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
@@ -1027,6 +1037,16 @@ export const yearnTogetherAbi = [
     name: 'initialize',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'user', internalType: 'address', type: 'address' },
+      { name: 'stakeIndex', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'isFullyUnstaked',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -1223,6 +1243,13 @@ export const yearnTogetherAbi = [
     name: 'renounceOwnership',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'rewardsPot',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -1535,6 +1562,17 @@ export const yearnTogetherAbi = [
   {
     type: 'function',
     inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'to', internalType: 'address', type: 'address' },
+    ],
+    name: 'withdrawRewardsExcess',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
       { name: '', internalType: 'address', type: 'address' },
       { name: '', internalType: 'uint256', type: 'uint256' },
     ],
@@ -1552,14 +1590,14 @@ export const yearnTogetherAbi = [
 ] as const
 
 /**
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const yearnTogetherAddress = {
-  84532: '0x72072efD335cf34a108aEcEdF27F0c3d036A86D1',
+  56: '0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9',
 } as const
 
 /**
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const yearnTogetherConfig = {
   address: yearnTogetherAddress,
@@ -1715,7 +1753,7 @@ export const useWatchErc20TransferEvent =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogether = /*#__PURE__*/ createUseReadContract({
   abi: yearnTogetherAbi,
@@ -1725,7 +1763,7 @@ export const useReadYearnTogether = /*#__PURE__*/ createUseReadContract({
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"UPGRADE_INTERFACE_VERSION"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherUpgradeInterfaceVersion =
   /*#__PURE__*/ createUseReadContract({
@@ -1737,7 +1775,7 @@ export const useReadYearnTogetherUpgradeInterfaceVersion =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimFeePercent"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherClaimFeePercent =
   /*#__PURE__*/ createUseReadContract({
@@ -1749,7 +1787,7 @@ export const useReadYearnTogetherClaimFeePercent =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"cumulativeBaseAPR"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherCumulativeBaseApr =
   /*#__PURE__*/ createUseReadContract({
@@ -1761,7 +1799,7 @@ export const useReadYearnTogetherCumulativeBaseApr =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"feeCollector"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherFeeCollector =
   /*#__PURE__*/ createUseReadContract({
@@ -1773,7 +1811,7 @@ export const useReadYearnTogetherFeeCollector =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getClaimableInterval"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetClaimableInterval =
   /*#__PURE__*/ createUseReadContract({
@@ -1785,7 +1823,7 @@ export const useReadYearnTogetherGetClaimableInterval =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getGoldenStarCap"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetGoldenStarCap =
   /*#__PURE__*/ createUseReadContract({
@@ -1797,7 +1835,7 @@ export const useReadYearnTogetherGetGoldenStarCap =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getGoldenStarEarned"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetGoldenStarEarned =
   /*#__PURE__*/ createUseReadContract({
@@ -1809,7 +1847,7 @@ export const useReadYearnTogetherGetGoldenStarEarned =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getGoldenStarPending"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetGoldenStarPending =
   /*#__PURE__*/ createUseReadContract({
@@ -1821,7 +1859,7 @@ export const useReadYearnTogetherGetGoldenStarPending =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getNextClaimTime"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetNextClaimTime =
   /*#__PURE__*/ createUseReadContract({
@@ -1833,7 +1871,7 @@ export const useReadYearnTogetherGetNextClaimTime =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getPackageDetails"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetPackageDetails =
   /*#__PURE__*/ createUseReadContract({
@@ -1845,7 +1883,7 @@ export const useReadYearnTogetherGetPackageDetails =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getReferredUsers"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetReferredUsers =
   /*#__PURE__*/ createUseReadContract({
@@ -1857,7 +1895,7 @@ export const useReadYearnTogetherGetReferredUsers =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getStake"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetStake = /*#__PURE__*/ createUseReadContract(
   {
@@ -1870,7 +1908,7 @@ export const useReadYearnTogetherGetStake = /*#__PURE__*/ createUseReadContract(
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getStarLevelRewardPercent"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetStarLevelRewardPercent =
   /*#__PURE__*/ createUseReadContract({
@@ -1882,7 +1920,7 @@ export const useReadYearnTogetherGetStarLevelRewardPercent =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"getValidCompositions"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGetValidCompositions =
   /*#__PURE__*/ createUseReadContract({
@@ -1894,7 +1932,7 @@ export const useReadYearnTogetherGetValidCompositions =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"goldenStarActivatedAt"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGoldenStarActivatedAt =
   /*#__PURE__*/ createUseReadContract({
@@ -1906,7 +1944,7 @@ export const useReadYearnTogetherGoldenStarActivatedAt =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"goldenStarConfig"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGoldenStarConfig =
   /*#__PURE__*/ createUseReadContract({
@@ -1918,7 +1956,7 @@ export const useReadYearnTogetherGoldenStarConfig =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"goldenStarEarned"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherGoldenStarEarned =
   /*#__PURE__*/ createUseReadContract({
@@ -1928,9 +1966,21 @@ export const useReadYearnTogetherGoldenStarEarned =
   })
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"isFullyUnstaked"`
+ *
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
+ */
+export const useReadYearnTogetherIsFullyUnstaked =
+  /*#__PURE__*/ createUseReadContract({
+    abi: yearnTogetherAbi,
+    address: yearnTogetherAddress,
+    functionName: 'isFullyUnstaked',
+  })
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"isGoldenStar"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherIsGoldenStar =
   /*#__PURE__*/ createUseReadContract({
@@ -1942,7 +1992,7 @@ export const useReadYearnTogetherIsGoldenStar =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"isInReferralTree"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherIsInReferralTree =
   /*#__PURE__*/ createUseReadContract({
@@ -1954,7 +2004,7 @@ export const useReadYearnTogetherIsInReferralTree =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"isWhitelisted"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherIsWhitelisted =
   /*#__PURE__*/ createUseReadContract({
@@ -1966,7 +2016,7 @@ export const useReadYearnTogetherIsWhitelisted =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"levelOneReferralRequirement"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherLevelOneReferralRequirement =
   /*#__PURE__*/ createUseReadContract({
@@ -1978,7 +2028,7 @@ export const useReadYearnTogetherLevelOneReferralRequirement =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"maxReferralLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherMaxReferralLevel =
   /*#__PURE__*/ createUseReadContract({
@@ -1990,7 +2040,7 @@ export const useReadYearnTogetherMaxReferralLevel =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"maxStarLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherMaxStarLevel =
   /*#__PURE__*/ createUseReadContract({
@@ -2002,7 +2052,7 @@ export const useReadYearnTogetherMaxStarLevel =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"nextPackageId"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherNextPackageId =
   /*#__PURE__*/ createUseReadContract({
@@ -2014,7 +2064,7 @@ export const useReadYearnTogetherNextPackageId =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"owner"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherOwner = /*#__PURE__*/ createUseReadContract({
   abi: yearnTogetherAbi,
@@ -2025,7 +2075,7 @@ export const useReadYearnTogetherOwner = /*#__PURE__*/ createUseReadContract({
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"pYearn"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherPYearn = /*#__PURE__*/ createUseReadContract({
   abi: yearnTogetherAbi,
@@ -2036,7 +2086,7 @@ export const useReadYearnTogetherPYearn = /*#__PURE__*/ createUseReadContract({
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"packages"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherPackages = /*#__PURE__*/ createUseReadContract(
   {
@@ -2049,7 +2099,7 @@ export const useReadYearnTogetherPackages = /*#__PURE__*/ createUseReadContract(
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"paused"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherPaused = /*#__PURE__*/ createUseReadContract({
   abi: yearnTogetherAbi,
@@ -2060,7 +2110,7 @@ export const useReadYearnTogetherPaused = /*#__PURE__*/ createUseReadContract({
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"pendingStarRewards"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherPendingStarRewards =
   /*#__PURE__*/ createUseReadContract({
@@ -2072,7 +2122,7 @@ export const useReadYearnTogetherPendingStarRewards =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"proxiableUUID"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherProxiableUuid =
   /*#__PURE__*/ createUseReadContract({
@@ -2084,7 +2134,7 @@ export const useReadYearnTogetherProxiableUuid =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"referralEarnings"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherReferralEarnings =
   /*#__PURE__*/ createUseReadContract({
@@ -2096,7 +2146,7 @@ export const useReadYearnTogetherReferralEarnings =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"referralHistory"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherReferralHistory =
   /*#__PURE__*/ createUseReadContract({
@@ -2108,7 +2158,7 @@ export const useReadYearnTogetherReferralHistory =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"referralRewardTiers"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherReferralRewardTiers =
   /*#__PURE__*/ createUseReadContract({
@@ -2120,7 +2170,7 @@ export const useReadYearnTogetherReferralRewardTiers =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"referralTimestamps"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherReferralTimestamps =
   /*#__PURE__*/ createUseReadContract({
@@ -2132,7 +2182,7 @@ export const useReadYearnTogetherReferralTimestamps =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"referrals"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherReferrals =
   /*#__PURE__*/ createUseReadContract({
@@ -2144,7 +2194,7 @@ export const useReadYearnTogetherReferrals =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"referrerOf"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherReferrerOf =
   /*#__PURE__*/ createUseReadContract({
@@ -2154,9 +2204,21 @@ export const useReadYearnTogetherReferrerOf =
   })
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"rewardsPot"`
+ *
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
+ */
+export const useReadYearnTogetherRewardsPot =
+  /*#__PURE__*/ createUseReadContract({
+    abi: yearnTogetherAbi,
+    address: yearnTogetherAddress,
+    functionName: 'rewardsPot',
+  })
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"sYearn"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherSYearn = /*#__PURE__*/ createUseReadContract({
   abi: yearnTogetherAbi,
@@ -2167,7 +2229,7 @@ export const useReadYearnTogetherSYearn = /*#__PURE__*/ createUseReadContract({
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"starLevelActivation"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherStarLevelActivation =
   /*#__PURE__*/ createUseReadContract({
@@ -2179,7 +2241,7 @@ export const useReadYearnTogetherStarLevelActivation =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"starLevelClaimed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherStarLevelClaimed =
   /*#__PURE__*/ createUseReadContract({
@@ -2191,7 +2253,7 @@ export const useReadYearnTogetherStarLevelClaimed =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"starLevelEarnings"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherStarLevelEarnings =
   /*#__PURE__*/ createUseReadContract({
@@ -2203,7 +2265,7 @@ export const useReadYearnTogetherStarLevelEarnings =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"starLevelTiers"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherStarLevelTiers =
   /*#__PURE__*/ createUseReadContract({
@@ -2215,7 +2277,7 @@ export const useReadYearnTogetherStarLevelTiers =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"starRewardEngine"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherStarRewardEngine =
   /*#__PURE__*/ createUseReadContract({
@@ -2227,7 +2289,7 @@ export const useReadYearnTogetherStarRewardEngine =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"starTierExecutor"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherStarTierExecutor =
   /*#__PURE__*/ createUseReadContract({
@@ -2239,7 +2301,7 @@ export const useReadYearnTogetherStarTierExecutor =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"subLevelReferralRequirement"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherSubLevelReferralRequirement =
   /*#__PURE__*/ createUseReadContract({
@@ -2251,7 +2313,7 @@ export const useReadYearnTogetherSubLevelReferralRequirement =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"userRewardTiers"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherUserRewardTiers =
   /*#__PURE__*/ createUseReadContract({
@@ -2263,7 +2325,7 @@ export const useReadYearnTogetherUserRewardTiers =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"userStakeCounts"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherUserStakeCounts =
   /*#__PURE__*/ createUseReadContract({
@@ -2275,7 +2337,7 @@ export const useReadYearnTogetherUserStakeCounts =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"userStakeTokenAmounts"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherUserStakeTokenAmounts =
   /*#__PURE__*/ createUseReadContract({
@@ -2287,7 +2349,7 @@ export const useReadYearnTogetherUserStakeTokenAmounts =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"userStakes"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherUserStakes =
   /*#__PURE__*/ createUseReadContract({
@@ -2299,7 +2361,7 @@ export const useReadYearnTogetherUserStakes =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"userStarLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherUserStarLevel =
   /*#__PURE__*/ createUseReadContract({
@@ -2311,7 +2373,7 @@ export const useReadYearnTogetherUserStarLevel =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"userTotalStaked"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherUserTotalStaked =
   /*#__PURE__*/ createUseReadContract({
@@ -2323,7 +2385,7 @@ export const useReadYearnTogetherUserTotalStaked =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"validCompositions"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherValidCompositions =
   /*#__PURE__*/ createUseReadContract({
@@ -2335,7 +2397,7 @@ export const useReadYearnTogetherValidCompositions =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"validCompositionsLength"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherValidCompositionsLength =
   /*#__PURE__*/ createUseReadContract({
@@ -2347,7 +2409,7 @@ export const useReadYearnTogetherValidCompositionsLength =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"withdrawnPerStake"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherWithdrawnPerStake =
   /*#__PURE__*/ createUseReadContract({
@@ -2359,7 +2421,7 @@ export const useReadYearnTogetherWithdrawnPerStake =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"yYearn"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useReadYearnTogetherYYearn = /*#__PURE__*/ createUseReadContract({
   abi: yearnTogetherAbi,
@@ -2370,7 +2432,7 @@ export const useReadYearnTogetherYYearn = /*#__PURE__*/ createUseReadContract({
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogether = /*#__PURE__*/ createUseWriteContract({
   abi: yearnTogetherAbi,
@@ -2380,7 +2442,7 @@ export const useWriteYearnTogether = /*#__PURE__*/ createUseWriteContract({
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"addPendingGoldenReward"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherAddPendingGoldenReward =
   /*#__PURE__*/ createUseWriteContract({
@@ -2392,7 +2454,7 @@ export const useWriteYearnTogetherAddPendingGoldenReward =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"addPendingStarReward"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherAddPendingStarReward =
   /*#__PURE__*/ createUseWriteContract({
@@ -2404,7 +2466,7 @@ export const useWriteYearnTogetherAddPendingStarReward =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"addValidComposition"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherAddValidComposition =
   /*#__PURE__*/ createUseWriteContract({
@@ -2416,7 +2478,7 @@ export const useWriteYearnTogetherAddValidComposition =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimAPR"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherClaimApr =
   /*#__PURE__*/ createUseWriteContract({
@@ -2428,7 +2490,7 @@ export const useWriteYearnTogetherClaimApr =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimGoldenStarRewards"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherClaimGoldenStarRewards =
   /*#__PURE__*/ createUseWriteContract({
@@ -2440,7 +2502,7 @@ export const useWriteYearnTogetherClaimGoldenStarRewards =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimReferralRewards"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherClaimReferralRewards =
   /*#__PURE__*/ createUseWriteContract({
@@ -2452,7 +2514,7 @@ export const useWriteYearnTogetherClaimReferralRewards =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimStarLevelRewards"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherClaimStarLevelRewards =
   /*#__PURE__*/ createUseWriteContract({
@@ -2464,7 +2526,7 @@ export const useWriteYearnTogetherClaimStarLevelRewards =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"createPackage"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherCreatePackage =
   /*#__PURE__*/ createUseWriteContract({
@@ -2474,9 +2536,21 @@ export const useWriteYearnTogetherCreatePackage =
   })
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"fundRewardsPot"`
+ *
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
+ */
+export const useWriteYearnTogetherFundRewardsPot =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: yearnTogetherAbi,
+    address: yearnTogetherAddress,
+    functionName: 'fundRewardsPot',
+  })
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"initialize"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherInitialize =
   /*#__PURE__*/ createUseWriteContract({
@@ -2488,7 +2562,7 @@ export const useWriteYearnTogetherInitialize =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"markGoldenStarActivated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherMarkGoldenStarActivated =
   /*#__PURE__*/ createUseWriteContract({
@@ -2500,7 +2574,7 @@ export const useWriteYearnTogetherMarkGoldenStarActivated =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"pause"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherPause = /*#__PURE__*/ createUseWriteContract({
   abi: yearnTogetherAbi,
@@ -2511,7 +2585,7 @@ export const useWriteYearnTogetherPause = /*#__PURE__*/ createUseWriteContract({
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"renounceOwnership"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherRenounceOwnership =
   /*#__PURE__*/ createUseWriteContract({
@@ -2523,7 +2597,7 @@ export const useWriteYearnTogetherRenounceOwnership =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setGoldenStarConfig"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetGoldenStarConfig =
   /*#__PURE__*/ createUseWriteContract({
@@ -2535,7 +2609,7 @@ export const useWriteYearnTogetherSetGoldenStarConfig =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setMaxReferralLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetMaxReferralLevel =
   /*#__PURE__*/ createUseWriteContract({
@@ -2547,7 +2621,7 @@ export const useWriteYearnTogetherSetMaxReferralLevel =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setMaxStarLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetMaxStarLevel =
   /*#__PURE__*/ createUseWriteContract({
@@ -2559,7 +2633,7 @@ export const useWriteYearnTogetherSetMaxStarLevel =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setPackageActive"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetPackageActive =
   /*#__PURE__*/ createUseWriteContract({
@@ -2571,7 +2645,7 @@ export const useWriteYearnTogetherSetPackageActive =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setReferralRewardTiers"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetReferralRewardTiers =
   /*#__PURE__*/ createUseWriteContract({
@@ -2583,7 +2657,7 @@ export const useWriteYearnTogetherSetReferralRewardTiers =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setStarLevelActivation"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetStarLevelActivation =
   /*#__PURE__*/ createUseWriteContract({
@@ -2595,7 +2669,7 @@ export const useWriteYearnTogetherSetStarLevelActivation =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setStarLevelTiers"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetStarLevelTiers =
   /*#__PURE__*/ createUseWriteContract({
@@ -2607,7 +2681,7 @@ export const useWriteYearnTogetherSetStarLevelTiers =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setStarRewardEngine"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetStarRewardEngine =
   /*#__PURE__*/ createUseWriteContract({
@@ -2619,7 +2693,7 @@ export const useWriteYearnTogetherSetStarRewardEngine =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setUserStarLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherSetUserStarLevel =
   /*#__PURE__*/ createUseWriteContract({
@@ -2631,7 +2705,7 @@ export const useWriteYearnTogetherSetUserStarLevel =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"stake"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherStake = /*#__PURE__*/ createUseWriteContract({
   abi: yearnTogetherAbi,
@@ -2642,7 +2716,7 @@ export const useWriteYearnTogetherStake = /*#__PURE__*/ createUseWriteContract({
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"transferOwnership"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherTransferOwnership =
   /*#__PURE__*/ createUseWriteContract({
@@ -2654,7 +2728,7 @@ export const useWriteYearnTogetherTransferOwnership =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"unpause"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherUnpause =
   /*#__PURE__*/ createUseWriteContract({
@@ -2666,7 +2740,7 @@ export const useWriteYearnTogetherUnpause =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"unstake"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherUnstake =
   /*#__PURE__*/ createUseWriteContract({
@@ -2678,7 +2752,7 @@ export const useWriteYearnTogetherUnstake =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"upgradeToAndCall"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherUpgradeToAndCall =
   /*#__PURE__*/ createUseWriteContract({
@@ -2690,7 +2764,7 @@ export const useWriteYearnTogetherUpgradeToAndCall =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"whitelist"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWriteYearnTogetherWhitelist =
   /*#__PURE__*/ createUseWriteContract({
@@ -2700,9 +2774,21 @@ export const useWriteYearnTogetherWhitelist =
   })
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"withdrawRewardsExcess"`
+ *
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
+ */
+export const useWriteYearnTogetherWithdrawRewardsExcess =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: yearnTogetherAbi,
+    address: yearnTogetherAddress,
+    functionName: 'withdrawRewardsExcess',
+  })
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogether = /*#__PURE__*/ createUseSimulateContract(
   { abi: yearnTogetherAbi, address: yearnTogetherAddress },
@@ -2711,7 +2797,7 @@ export const useSimulateYearnTogether = /*#__PURE__*/ createUseSimulateContract(
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"addPendingGoldenReward"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherAddPendingGoldenReward =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2723,7 +2809,7 @@ export const useSimulateYearnTogetherAddPendingGoldenReward =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"addPendingStarReward"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherAddPendingStarReward =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2735,7 +2821,7 @@ export const useSimulateYearnTogetherAddPendingStarReward =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"addValidComposition"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherAddValidComposition =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2747,7 +2833,7 @@ export const useSimulateYearnTogetherAddValidComposition =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimAPR"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherClaimApr =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2759,7 +2845,7 @@ export const useSimulateYearnTogetherClaimApr =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimGoldenStarRewards"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherClaimGoldenStarRewards =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2771,7 +2857,7 @@ export const useSimulateYearnTogetherClaimGoldenStarRewards =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimReferralRewards"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherClaimReferralRewards =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2783,7 +2869,7 @@ export const useSimulateYearnTogetherClaimReferralRewards =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"claimStarLevelRewards"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherClaimStarLevelRewards =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2795,7 +2881,7 @@ export const useSimulateYearnTogetherClaimStarLevelRewards =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"createPackage"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherCreatePackage =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2805,9 +2891,21 @@ export const useSimulateYearnTogetherCreatePackage =
   })
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"fundRewardsPot"`
+ *
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
+ */
+export const useSimulateYearnTogetherFundRewardsPot =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: yearnTogetherAbi,
+    address: yearnTogetherAddress,
+    functionName: 'fundRewardsPot',
+  })
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"initialize"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherInitialize =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2819,7 +2917,7 @@ export const useSimulateYearnTogetherInitialize =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"markGoldenStarActivated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherMarkGoldenStarActivated =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2831,7 +2929,7 @@ export const useSimulateYearnTogetherMarkGoldenStarActivated =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"pause"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherPause =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2843,7 +2941,7 @@ export const useSimulateYearnTogetherPause =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"renounceOwnership"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherRenounceOwnership =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2855,7 +2953,7 @@ export const useSimulateYearnTogetherRenounceOwnership =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setGoldenStarConfig"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetGoldenStarConfig =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2867,7 +2965,7 @@ export const useSimulateYearnTogetherSetGoldenStarConfig =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setMaxReferralLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetMaxReferralLevel =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2879,7 +2977,7 @@ export const useSimulateYearnTogetherSetMaxReferralLevel =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setMaxStarLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetMaxStarLevel =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2891,7 +2989,7 @@ export const useSimulateYearnTogetherSetMaxStarLevel =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setPackageActive"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetPackageActive =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2903,7 +3001,7 @@ export const useSimulateYearnTogetherSetPackageActive =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setReferralRewardTiers"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetReferralRewardTiers =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2915,7 +3013,7 @@ export const useSimulateYearnTogetherSetReferralRewardTiers =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setStarLevelActivation"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetStarLevelActivation =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2927,7 +3025,7 @@ export const useSimulateYearnTogetherSetStarLevelActivation =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setStarLevelTiers"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetStarLevelTiers =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2939,7 +3037,7 @@ export const useSimulateYearnTogetherSetStarLevelTiers =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setStarRewardEngine"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetStarRewardEngine =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2951,7 +3049,7 @@ export const useSimulateYearnTogetherSetStarRewardEngine =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"setUserStarLevel"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherSetUserStarLevel =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2963,7 +3061,7 @@ export const useSimulateYearnTogetherSetUserStarLevel =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"stake"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherStake =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2975,7 +3073,7 @@ export const useSimulateYearnTogetherStake =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"transferOwnership"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherTransferOwnership =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2987,7 +3085,7 @@ export const useSimulateYearnTogetherTransferOwnership =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"unpause"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherUnpause =
   /*#__PURE__*/ createUseSimulateContract({
@@ -2999,7 +3097,7 @@ export const useSimulateYearnTogetherUnpause =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"unstake"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherUnstake =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3011,7 +3109,7 @@ export const useSimulateYearnTogetherUnstake =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"upgradeToAndCall"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherUpgradeToAndCall =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3023,7 +3121,7 @@ export const useSimulateYearnTogetherUpgradeToAndCall =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"whitelist"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useSimulateYearnTogetherWhitelist =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3033,9 +3131,21 @@ export const useSimulateYearnTogetherWhitelist =
   })
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link yearnTogetherAbi}__ and `functionName` set to `"withdrawRewardsExcess"`
+ *
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
+ */
+export const useSimulateYearnTogetherWithdrawRewardsExcess =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: yearnTogetherAbi,
+    address: yearnTogetherAddress,
+    functionName: 'withdrawRewardsExcess',
+  })
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3046,7 +3156,7 @@ export const useWatchYearnTogetherEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"APRClaimed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherAprClaimedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3058,7 +3168,7 @@ export const useWatchYearnTogetherAprClaimedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"Claimed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherClaimedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3070,7 +3180,7 @@ export const useWatchYearnTogetherClaimedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"GoldenRewardDistributed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherGoldenRewardDistributedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3082,7 +3192,7 @@ export const useWatchYearnTogetherGoldenRewardDistributedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"GoldenStarActivated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherGoldenStarActivatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3094,7 +3204,7 @@ export const useWatchYearnTogetherGoldenStarActivatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"GoldenStarConfigUpdated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherGoldenStarConfigUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3106,7 +3216,7 @@ export const useWatchYearnTogetherGoldenStarConfigUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"GoldenStarRewardClaimed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherGoldenStarRewardClaimedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3118,7 +3228,7 @@ export const useWatchYearnTogetherGoldenStarRewardClaimedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"GoldenStarRewardDistributed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherGoldenStarRewardDistributedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3130,7 +3240,7 @@ export const useWatchYearnTogetherGoldenStarRewardDistributedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"Initialized"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherInitializedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3142,7 +3252,7 @@ export const useWatchYearnTogetherInitializedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"MaxStarLevelUpdated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherMaxStarLevelUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3154,7 +3264,7 @@ export const useWatchYearnTogetherMaxStarLevelUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"OwnershipTransferred"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherOwnershipTransferredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3166,7 +3276,7 @@ export const useWatchYearnTogetherOwnershipTransferredEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"PackageCreated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherPackageCreatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3178,7 +3288,7 @@ export const useWatchYearnTogetherPackageCreatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"PackageStatusUpdated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherPackageStatusUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3190,7 +3300,7 @@ export const useWatchYearnTogetherPackageStatusUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"Paused"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherPausedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3202,7 +3312,7 @@ export const useWatchYearnTogetherPausedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"ReferralAssigned"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherReferralAssignedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3214,7 +3324,7 @@ export const useWatchYearnTogetherReferralAssignedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"ReferralRewardDistributed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherReferralRewardDistributedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3226,7 +3336,7 @@ export const useWatchYearnTogetherReferralRewardDistributedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"ReferralRewardTiersUpdated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherReferralRewardTiersUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3238,7 +3348,7 @@ export const useWatchYearnTogetherReferralRewardTiersUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"ReferralRewardsClaimed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherReferralRewardsClaimedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3250,7 +3360,7 @@ export const useWatchYearnTogetherReferralRewardsClaimedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"Staked"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherStakedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3262,7 +3372,7 @@ export const useWatchYearnTogetherStakedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"StarLevelRequirementsUpdated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherStarLevelRequirementsUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3274,7 +3384,7 @@ export const useWatchYearnTogetherStarLevelRequirementsUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"StarLevelTiersUpdated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherStarLevelTiersUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3286,7 +3396,7 @@ export const useWatchYearnTogetherStarLevelTiersUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"StarLevelUpdated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherStarLevelUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3298,7 +3408,7 @@ export const useWatchYearnTogetherStarLevelUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"StarRewardClaimed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherStarRewardClaimedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3310,7 +3420,7 @@ export const useWatchYearnTogetherStarRewardClaimedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"StarRewardDistributed"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherStarRewardDistributedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3322,7 +3432,7 @@ export const useWatchYearnTogetherStarRewardDistributedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"StarTierExecutorUpdated"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherStarTierExecutorUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3334,7 +3444,7 @@ export const useWatchYearnTogetherStarTierExecutorUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"Unpaused"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherUnpausedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3346,7 +3456,7 @@ export const useWatchYearnTogetherUnpausedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"Unstaked"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherUnstakedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3358,7 +3468,7 @@ export const useWatchYearnTogetherUnstakedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"Upgraded"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherUpgradedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3370,7 +3480,7 @@ export const useWatchYearnTogetherUpgradedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link yearnTogetherAbi}__ and `eventName` set to `"ValidCompositionAdded"`
  *
- * [__View Contract on Base Sepolia Basescan__](https://sepolia.basescan.org/address/0x72072efD335cf34a108aEcEdF27F0c3d036A86D1)
+ * [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3dE36b916730303A324b23cDC61669EC9Ed1d0D9)
  */
 export const useWatchYearnTogetherValidCompositionAddedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({

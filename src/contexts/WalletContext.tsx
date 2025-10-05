@@ -94,6 +94,23 @@ export function useWallet() {
   return ctx;
 }
 
+/* --------------------------- helpers (new) --------------------------- */
+
+const makeBaseUser = (address: string): User => ({
+  address,
+  email: "",
+  phone: "",
+  starLevel: 0,
+  totalEarnings: 12500.75, // (kept as in your original placeholder)
+  totalVolume: 45000,       // (kept as in your original placeholder)
+  totalReferrals: 28,       // (kept as in your original placeholder)
+  directReferrals: 0,
+  levelUsers: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  isGoldenStar: false,
+  goldenStarProgress: (3 / 15) * 100,
+  activePackages: [],
+});
+
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
@@ -152,11 +169,42 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => clearInterval(id);
   }, []);
 
-  /** Reset user on disconnect */
+  /** Reset user on disconnect (kept) */
   useAccountEffect({
     onConnect: () => {},
     onDisconnect: () => setUser(null),
   });
+
+  /** -------------- NEW: centralized reset on address change -------------- */
+  const resetForAddress = (addr?: string) => {
+    if (!addr) {
+      setUser(null);
+      return;
+    }
+    setUser((prev) => {
+      // if same address do nothing
+      if (prev?.address?.toLowerCase() === addr.toLowerCase()) return prev ?? makeBaseUser(addr);
+      return makeBaseUser(addr);
+    });
+
+    // Immediate refetches for the new address context
+    try { refetchTokenDetailsRef.current?.(); } catch {}
+    try { refetchUserStakesRef.current?.(); } catch {}
+
+    // If you have any caches tied to the previous address, clear them here:
+    // apolloClient?.clearStore?.();
+    // urqlClient?.reexecuteOperation?.( ... );
+    // customCacheMap?.clear?.();
+  };
+
+  useEffect(() => {
+    if (!isConnectedWagmi || !address) {
+      resetForAddress(undefined);
+      return;
+    }
+    resetForAddress(address);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, isConnectedWagmi]);
 
   /** ========== Map subgraph stakes -> activePackages (pure + guarded) ========== */
   const mappedActive: ActivePackage[] = useMemo(() => {
@@ -194,20 +242,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     setUser((prev) => {
       if (!address) return null;
-      const base: User = prev ?? {
-        address,
-        email: "",
-        phone: "",
-        starLevel: 0,
-        totalEarnings: 12500.75,
-        totalVolume: 45000,
-        totalReferrals: 28,
-        directReferrals: 0,
-        levelUsers: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-        isGoldenStar: false,
-        goldenStarProgress: (3 / 15) * 100,
-        activePackages: [],
-      };
+      const base: User = prev ?? makeBaseUser(address);
 
       // shallow compare active list
       const a = base.activePackages, b = mappedActive;
@@ -215,7 +250,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         a.length === b.length &&
         a.every((x, i) => {
           const y = b[i];
-          return x.id === y.id &&
+          return y &&
+                 x.id === y.id &&
                  x.name === y.name &&
                  x.amount === y.amount &&
                  x.startDate.getTime() === y.startDate.getTime() &&
@@ -268,6 +304,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     Number(sReferralEarnings ? formatEther(sReferralEarnings as unknown as bigint) : 0) +
     Number(pReferralEarnings ? formatEther(pReferralEarnings as unknown as bigint) : 0);
 
+  /* -------------- IMPORTANT: ctx value re-keys on address change -------------- */
+  const ctxKey = (address ?? "disconnected").toLowerCase();
+
   const ctxValue: WalletContextType = {
     isConnected: isConnectedWagmi,
     user,
@@ -301,5 +340,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     refreshUserStakes: () => refetchUserStakes?.(),
   };
 
-  return <WalletContext.Provider value={ctxValue}>{children}</WalletContext.Provider>;
+  return (
+    // key forces a fresh context value to propagate cleanly on address switch
+    <WalletContext.Provider key={ctxKey} value={ctxValue}>
+      {children}
+    </WalletContext.Provider>
+  );
 };

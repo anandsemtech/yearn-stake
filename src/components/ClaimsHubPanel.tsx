@@ -1,44 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+// src/components/ClaimsHubPanel.tsx
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { Address } from "viem";
-import { decodeEventLog, formatUnits } from "viem";
-import { useAccount, usePublicClient } from "wagmi";
-import {
-  Copy, Check, User, Users, RefreshCcw, Search,
-  Sparkles, Star, Crown
-} from "lucide-react";
+import { formatUnits } from "viem";
+import { useAccount } from "wagmi";
+import { gql } from "graphql-request";
+import { subgraph } from "@/lib/subgraph";
 
-/* =========================================================
-   Event ABIs (indexed config must match your contract)
-   ========================================================= */
-const ReferralRewardsClaimedEvent = {
-  type: "event",
-  name: "ReferralRewardsClaimed",
-  inputs: [
-    { indexed: true,  name: "user",    type: "address" },
-    { indexed: false, name: "yAmount", type: "uint256" },
-    { indexed: false, name: "sAmount", type: "uint256" },
-    { indexed: false, name: "pAmount", type: "uint256" },
-  ],
-} as const;
-
-const StarRewardClaimedEvent = {
-  type: "event",
-  name: "StarRewardClaimed",
-  inputs: [
-    { indexed: true,  name: "user",  type: "address" },
-    { indexed: false, name: "level", type: "uint8" },
-    { indexed: false, name: "amount",type: "uint256" },
-  ],
-} as const;
-
-const GoldenStarRewardClaimedEvent = {
-  type: "event",
-  name: "GoldenStarRewardClaimed",
-  inputs: [
-    { indexed: true,  name: "user",   type: "address" },
-    { indexed: false, name: "amount", type: "uint256" },
-  ],
-} as const;
+import { Copy, Check, RefreshCcw, Sparkles, Star, Crown, User } from "lucide-react";
 
 /* =========================================================
    Small UI atoms
@@ -83,14 +51,16 @@ const SkeletonRow: React.FC<{ cols?: number }> = ({ cols = 4 }) => (
 /* =========================================================
    Types
    ========================================================= */
-type Scope = "mine" | "all";
 type TabKey = "referral" | "star" | "golden";
 
-type ReferralLog = {
+type ReferralEarningRow = {
   txHash: `0x${string}`;
   blockNumber: bigint;
-  user: Address;
-  y: bigint; s: bigint; p: bigint;
+  user: Address;            // referrer = me
+  referee: Address;         // who’s stake generated it
+  level: number;
+  token: `0x${string}`;     // Bytes in subgraph
+  amount: bigint;
   ts?: number;
 };
 
@@ -111,146 +81,219 @@ type GSLog = {
   ts?: number;
 };
 
-type BaseProps = {
-  proxy: Address;
+type ClaimsHubPanelProps = {
+  proxy?: Address;
   deployBlock?: bigint;
-};
-
-type ClaimsHubPanelProps = BaseProps & {
   defaultTab?: TabKey;
   yyDecimals?: number; // default 18
 };
 
 /* =========================================================
-   Data hooks (per tab)
+   Tiny cache (memory + localStorage)
    ========================================================= */
-function useReferralClaims({ proxy, deployBlock, userFilter }: BaseProps & { userFilter?: Address | null }) {
-  const pc = usePublicClient();
-  const [loading, setLoading] = useState(false);
-  const [logs, setLogs] = useState<ReferralLog[]>([]);
-  const [error, setError] = useState<string | null>(null);
+type CacheValue<T> = { t: number; data: T };
+const MEM = new Map<string, CacheValue<any>>();
+const TTL_MS_DEFAULT = 60_000;
 
-  const fetchAll = async () => {
-    if (!pc || !proxy) return;
-    setLoading(true); setError(null);
-    try {
-      let fromBlock = 0n;
-      try { if (deployBlock && deployBlock>0n) fromBlock=deployBlock; else { const tip=await pc.getBlockNumber(); fromBlock=tip>120000n?tip-120000n:0n; } } catch {}
-      const params: any = { address: proxy, event: ReferralRewardsClaimedEvent, fromBlock, toBlock: "latest" };
-      if (userFilter) params.args = { user: userFilter };
-      const raw = await pc.getLogs(params);
-
-      const items: ReferralLog[] = raw.map((l) => {
-        // @ts-ignore
-        const a = (l as any).args;
-        let user: Address | undefined, y: bigint | undefined, s: bigint | undefined, p: bigint | undefined;
-        if (a && "user" in a) { user = a.user; y = a.yAmount; s = a.sAmount; p = a.pAmount; }
-        else {
-          try {
-            const dec = decodeEventLog({ abi: [ReferralRewardsClaimedEvent], data: l.data, topics: l.topics }).args as any;
-            user = dec.user; y = dec.yAmount; s = dec.sAmount; p = dec.pAmount;
-          } catch {}
-        }
-        return { txHash: l.transactionHash!, blockNumber: l.blockNumber!, user: (user ?? "0x0000000000000000000000000000000000000000") as Address, y: y||0n, s: s||0n, p: p||0n };
-      });
-
-      const uniqBlocks = Array.from(new Set(items.map(i => i.blockNumber)));
-      const tsMap = new Map<bigint, number>();
-      await Promise.all(uniqBlocks.map(async (bn)=>{ try { const b=await pc.getBlock({ blockNumber: bn }); if (b?.timestamp) tsMap.set(bn, Number(b.timestamp)); } catch {} }));
-      const withTs = items.map(i => ({ ...i, ts: tsMap.get(i.blockNumber) })).sort((a,b)=>Number(b.blockNumber-a.blockNumber));
-      setLogs(withTs);
-    } catch (e:any) { setError(e?.message ?? "Failed to read referral logs"); setLogs([]); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => {
-    fetchAll();
-    if (!pc || !proxy) return;
-    const params: any = {
-      address: proxy,
-      event: ReferralRewardsClaimedEvent,
-      poll: true,
-      onLogs: (newLogs:any[]) => {
-        const next: ReferralLog[] = newLogs.map((l)=>{ // @ts-ignore
-          const a=(l as any).args; return { txHash:l.transactionHash!, blockNumber:l.blockNumber!, user:a.user as Address, y:a.yAmount as bigint, s:a.sAmount as bigint, p:a.pAmount as bigint }; });
-        const filtered = userFilter ? next.filter(n => n.user.toLowerCase() === userFilter.toLowerCase()) : next;
-        if (!filtered.length) return;
-        setLogs(prev => {
-          const merged = [...filtered.map(x=>({ ...x, ts: undefined })), ...prev];
-          const seen = new Set<string>();
-          return merged.filter(i => { const k = `${i.txHash}-${i.blockNumber}-${i.user}-${i.y}-${i.s}-${i.p}`; if (seen.has(k)) return false; seen.add(k); return true; });
-        });
-      }
-    };
-    if (userFilter) params.args = { user: userFilter };
-    const unwatch = pc.watchEvent(params);
-    return () => { try { unwatch?.(); } catch {} };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proxy, (userFilter||"").toLowerCase()]);
-
-  const totals = useMemo(() => logs.reduce((acc,l)=>{ acc.y+=l.y; acc.s+=l.s; acc.p+=l.p; return acc; }, { y:0n, s:0n, p:0n }), [logs]);
-  return { loading, logs, totals, error, refetch: fetchAll };
+function readCache<T>(key: string, ttlMs = TTL_MS_DEFAULT): T | null {
+  const now = Date.now();
+  const m = MEM.get(key);
+  if (m && now - m.t < ttlMs) return m.data as T;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as CacheValue<T>;
+    if (now - v.t < ttlMs) {
+      MEM.set(key, v);
+      return v.data;
+    }
+  } catch {}
+  return null;
+}
+function writeCache<T>(key: string, data: T) {
+  const entry: CacheValue<T> = { t: Date.now(), data };
+  MEM.set(key, entry);
+  try { localStorage.setItem(key, JSON.stringify(entry)); } catch {}
 }
 
-function useStarClaims({ proxy, deployBlock, userFilter }: BaseProps & { userFilter?: Address | null }) {
-  const pc = usePublicClient();
+/* =========================================================
+   GraphQL queries (mine only)
+   ========================================================= */
+
+/** Referral earnings generated by other users' stakes for me (referrer) */
+const Q_REFERRAL_EARNINGS_MINE = gql/* GraphQL */ `
+  query ReferralEarningsMine($user: ID!, $first: Int!, $skip: Int!) {
+    referralEarnings(
+      where: { user: $user }
+      orderBy: blockNumber
+      orderDirection: desc
+      first: $first
+      skip: $skip
+    ) {
+      id
+      user { id }         # me (referrer/earner)
+      referee { id }      # who triggered this earning
+      level
+      token               # Bytes
+      amount
+      blockNumber
+      timestamp
+      txHash
+    }
+  }
+`;
+
+const Q_STAR_CLAIMS_MINE = gql/* GraphQL */ `
+  query StarClaimsMine($user: ID!, $first: Int!, $skip: Int!) {
+    starRewardPayouts(
+      where: { user: $user, kind: "claimed" }
+      orderBy: blockNumber
+      orderDirection: desc
+      first: $first
+      skip: $skip
+    ) {
+      id
+      user { id }
+      level
+      amount
+      kind
+      blockNumber
+      timestamp
+      txHash
+    }
+  }
+`;
+
+const Q_GOLDEN_CLAIMS_MINE = gql/* GraphQL */ `
+  query GoldenClaimsMine($user: ID!, $first: Int!, $skip: Int!) {
+    goldenStarPayouts(
+      where: { user: $user, kind: "claimed" }
+      orderBy: blockNumber
+      orderDirection: desc
+      first: $first
+      skip: $skip
+    ) {
+      id
+      user { id }
+      amount
+      kind
+      blockNumber
+      timestamp
+      txHash
+    }
+  }
+`;
+
+/* =========================================================
+   Data hooks — subgraph only (mine)
+   ========================================================= */
+function useReferralEarningsMine({ user, ttlMs = TTL_MS_DEFAULT, pageSize = 100 }:{
+  user?: Address | null, ttlMs?: number, pageSize?: number
+}) {
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<ReferralEarningRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+
+  const refetch = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+
+    const key = `sg:ref-earn:mine:${(user ?? "").toLowerCase()}:v1`;
+    const cached = readCache<ReferralEarningRow[]>(key, ttlMs);
+    setRows(cached ?? []);
+    setLoading(true); setError(null);
+
+    try {
+      const first = pageSize, skip = 0;
+      const resp = await subgraph.request<any>(Q_REFERRAL_EARNINGS_MINE, {
+        user: (user ?? "0x0000000000000000000000000000000000000000").toLowerCase(),
+        first, skip
+      });
+
+      const list = (resp?.referralEarnings ?? []) as Array<any>;
+      const mapped: ReferralEarningRow[] = list.map((r:any) => ({
+        txHash: (r.txHash as string) as `0x${string}`,
+        blockNumber: BigInt(r.blockNumber ?? "0"),
+        user: (r.user?.id as string) as Address,
+        referee: (r.referee?.id as string) as Address,
+        level: Number(r.level ?? 0),
+        token: (r.token as string).toLowerCase() as `0x${string}`,
+        amount: BigInt(r.amount ?? "0"),
+        ts: r.timestamp ? Number(r.timestamp) : undefined,
+      }));
+
+      writeCache(key, mapped);
+      setRows(mapped);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load referral earnings");
+      setRows(cached ?? []);
+    } finally {
+      setLoading(false);
+      inFlight.current = false;
+    }
+  }, [user, ttlMs, pageSize]);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const totals = useMemo(() => {
+    // group totals per token
+    const byToken = new Map<string,bigint>();
+    let grand = 0n;
+    for (const r of rows) {
+      byToken.set(r.token, (byToken.get(r.token) ?? 0n) + r.amount);
+      grand += r.amount;
+    }
+    return { byToken, grand };
+  }, [rows]);
+
+  return { loading, rows, totals, error, refetch };
+}
+
+function useStarClaimsMine({ user, ttlMs = TTL_MS_DEFAULT, pageSize = 100 }:{
+  user?: Address | null, ttlMs?: number, pageSize?: number
+}) {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<StarLog[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
-  const fetchAll = async () => {
-    if (!pc || !proxy) return;
+  const refetch = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+
+    const key = `sg:star:mine:${(user ?? "").toLowerCase()}:v1`;
+    const cached = readCache<StarLog[]>(key, ttlMs);
+    setLogs(cached ?? []);
     setLoading(true); setError(null);
+
     try {
-      let fromBlock = 0n;
-      try { if (deployBlock && deployBlock>0n) fromBlock=deployBlock; else { const tip=await pc.getBlockNumber(); fromBlock=tip>120000n?tip-120000n:0n; } } catch {}
-      const params:any = { address: proxy, event: StarRewardClaimedEvent, fromBlock, toBlock: "latest" };
-      if (userFilter) params.args = { user: userFilter };
-      const raw = await pc.getLogs(params);
-
-      const items: StarLog[] = raw.map((l)=>{ // @ts-ignore
-        const a=(l as any).args; let user:Address|undefined; let level:number|undefined; let amount:bigint|undefined;
-        if (a && "user" in a) { user=a.user as Address; level=Number(a.level); amount=a.amount as bigint; }
-        else {
-          try { const dec=decodeEventLog({ abi:[StarRewardClaimedEvent], data:l.data, topics:l.topics }).args as any;
-            user=dec.user as Address; level=Number(dec.level); amount=dec.amount as bigint; } catch {}
-        }
-        return { txHash:l.transactionHash!, blockNumber:l.blockNumber!, user:(user??"0x0000000000000000000000000000000000000000") as Address, level:level??0, amount:amount||0n };
+      const first = pageSize, skip = 0;
+      const resp = await subgraph.request<any>(Q_STAR_CLAIMS_MINE, {
+        user: (user ?? "0x0000000000000000000000000000000000000000").toLowerCase(),
+        first, skip
       });
+      const rows = (resp?.starRewardPayouts ?? []) as Array<any>;
+      const mapped: StarLog[] = rows.map((r: any) => ({
+        txHash: (r.txHash as string) as `0x${string}`,
+        blockNumber: BigInt(r.blockNumber ?? "0"),
+        user: (r.user?.id as string) as Address,
+        level: Number(r.level ?? 0),
+        amount: BigInt(r.amount ?? "0"),
+        ts: r.timestamp ? Number(r.timestamp) : undefined,
+      }));
+      writeCache(key, mapped);
+      setLogs(mapped);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load star claims");
+      setLogs(cached ?? []);
+    } finally {
+      setLoading(false);
+      inFlight.current = false;
+    }
+  }, [user, ttlMs, pageSize]);
 
-      const uniqBlocks = Array.from(new Set(items.map(i=>i.blockNumber)));
-      const tsMap = new Map<bigint, number>();
-      await Promise.all(uniqBlocks.map(async (bn)=>{ try{ const b=await pc.getBlock({blockNumber:bn}); if(b?.timestamp) tsMap.set(bn, Number(b.timestamp)); }catch{} }));
-      const withTs = items.map(i=>({ ...i, ts: tsMap.get(i.blockNumber) })).sort((a,b)=>Number(b.blockNumber-a.blockNumber));
-      setLogs(withTs);
-    } catch (e:any) { setError(e?.message ?? "Failed to read star logs"); setLogs([]); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(()=> {
-    fetchAll();
-    if (!pc || !proxy) return;
-    const params:any = {
-      address: proxy,
-      event: StarRewardClaimedEvent,
-      poll:true,
-      onLogs:(newLogs:any[])=>{
-        const next:StarLog[] = newLogs.map((l)=>{ // @ts-ignore
-          const a=(l as any).args; return { txHash:l.transactionHash!, blockNumber:l.blockNumber!, user:a.user as Address, level:Number(a.level), amount:a.amount as bigint }; });
-        const filtered = userFilter ? next.filter(n=> n.user.toLowerCase()===userFilter.toLowerCase()) : next;
-        if (!filtered.length) return;
-        setLogs(prev=>{
-          const merged=[...filtered.map(x=>({ ...x, ts:undefined })), ...prev];
-          const seen=new Set<string>();
-          return merged.filter(i=>{ const k=`${i.txHash}-${i.blockNumber}-${i.user}-${i.level}-${i.amount}`; if(seen.has(k)) return false; seen.add(k); return true; });
-        });
-      }
-    };
-    if (userFilter) params.args = { user: userFilter };
-    const unwatch = pc.watchEvent(params);
-    return ()=>{ try{ unwatch?.(); }catch{} };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proxy, (userFilter||"").toLowerCase()]);
+  useEffect(() => { refetch(); }, [refetch]);
 
   const totals = useMemo(()=>{
     const perLevel = new Map<number,bigint>(); let grand=0n;
@@ -258,132 +301,150 @@ function useStarClaims({ proxy, deployBlock, userFilter }: BaseProps & { userFil
     return { perLevel, grand };
   },[logs]);
 
-  return { loading, logs, totals, error, refetch: fetchAll };
+  return { loading, logs, totals, error, refetch };
 }
 
-function useGoldenStarClaims({ proxy, deployBlock, userFilter }: BaseProps & { userFilter?: Address | null }) {
-  const pc = usePublicClient();
+function useGoldenStarClaimsMine({ user, ttlMs = TTL_MS_DEFAULT, pageSize = 100 }:{
+  user?: Address | null, ttlMs?: number, pageSize?: number
+}) {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<GSLog[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
-  const fetchAll = async () => {
-    if (!pc || !proxy) return;
+  const refetch = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+
+    const key = `sg:golden:mine:${(user ?? "").toLowerCase()}:v1`;
+    const cached = readCache<GSLog[]>(key, ttlMs);
+    setLogs(cached ?? []);
     setLoading(true); setError(null);
+
     try {
-      let fromBlock = 0n;
-      try { if (deployBlock && deployBlock>0n) fromBlock=deployBlock; else { const tip=await pc.getBlockNumber(); fromBlock=tip>120000n?tip-120000n:0n; } } catch {}
-      const params:any = { address: proxy, event: GoldenStarRewardClaimedEvent, fromBlock, toBlock: "latest" };
-      if (userFilter) params.args = { user: userFilter };
-      const raw = await pc.getLogs(params);
-
-      const items: GSLog[] = raw.map((l)=>{ // @ts-ignore
-        const a=(l as any).args; let user:Address|undefined; let amount:bigint|undefined;
-        if (a && "user" in a) { user=a.user as Address; amount=a.amount as bigint; }
-        else { try{ const dec=decodeEventLog({ abi:[GoldenStarRewardClaimedEvent], data:l.data, topics:l.topics }).args as any; user=dec.user as Address; amount=dec.amount as bigint; } catch{} }
-        return { txHash:l.transactionHash!, blockNumber:l.blockNumber!, user:(user??"0x0000000000000000000000000000000000000000") as Address, amount:amount||0n };
+      const first = pageSize, skip = 0;
+      const resp = await subgraph.request<any>(Q_GOLDEN_CLAIMS_MINE, {
+        user: (user ?? "0x0000000000000000000000000000000000000000").toLowerCase(),
+        first, skip
       });
+      const rows = (resp?.goldenStarPayouts ?? []) as Array<any>;
+      const mapped: GSLog[] = rows.map((r: any) => ({
+        txHash: (r.txHash as string) as `0x${string}`,
+        blockNumber: BigInt(r.blockNumber ?? "0"),
+        user: (r.user?.id as string) as Address,
+        amount: BigInt(r.amount ?? "0"),
+        ts: r.timestamp ? Number(r.timestamp) : undefined,
+      }));
+      writeCache(key, mapped);
+      setLogs(mapped);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load golden star claims");
+      setLogs(cached ?? []);
+    } finally {
+      setLoading(false);
+      inFlight.current = false;
+    }
+  }, [user, ttlMs, pageSize]);
 
-      const uniqBlocks = Array.from(new Set(items.map(i=>i.blockNumber)));
-      const tsMap = new Map<bigint, number>();
-      await Promise.all(uniqBlocks.map(async (bn)=>{ try{ const b=await pc.getBlock({blockNumber:bn}); if(b?.timestamp) tsMap.set(bn, Number(b.timestamp)); }catch{} }));
-      const withTs = items.map(i=>({ ...i, ts: tsMap.get(i.blockNumber) })).sort((a,b)=>Number(b.blockNumber-a.blockNumber));
-      setLogs(withTs);
-    } catch (e:any) { setError(e?.message ?? "Failed to read golden star logs"); setLogs([]); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(()=> {
-    fetchAll();
-    if (!pc || !proxy) return;
-    const params:any = {
-      address: proxy,
-      event: GoldenStarRewardClaimedEvent,
-      poll:true,
-      onLogs:(newLogs:any[])=>{
-        const next:GSLog[] = newLogs.map((l)=>{ // @ts-ignore
-          const a=(l as any).args; return { txHash:l.transactionHash!, blockNumber:l.blockNumber!, user:a.user as Address, amount:a.amount as bigint }; });
-        const filtered = userFilter ? next.filter(n=> n.user.toLowerCase()===userFilter.toLowerCase()) : next;
-        if (!filtered.length) return;
-        setLogs(prev=>{
-          const merged=[...filtered.map(x=>({ ...x, ts:undefined })), ...prev];
-          const seen=new Set<string>();
-          return merged.filter(i=>{ const k=`${i.txHash}-${i.blockNumber}-${i.user}-${i.amount}`; if(seen.has(k)) return false; seen.add(k); return true; });
-        });
-      }
-    };
-    if (userFilter) params.args = { user: userFilter };
-    const unwatch = pc.watchEvent(params);
-    return ()=>{ try{ unwatch?.(); }catch{} };
-    // eslint-disable-next-line react-hooks/exducependeps
-  }, [proxy, (userFilter||"").toLowerCase()]);
+  useEffect(() => { refetch(); }, [refetch]);
 
   const total = useMemo(()=> logs.reduce((acc,l)=> acc + l.amount, 0n), [logs]);
-  return { loading, logs, total, error, refetch: fetchAll };
+
+  return { loading, logs, total, error, refetch };
 }
 
 /* =========================================================
-   Panels (content per tab)
+   Panels — mine only
    ========================================================= */
-const ReferralTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = ({ proxy, deployBlock, scope }) => {
-  const { address } = useAccount();
-  const { loading, logs, totals, error, refetch } = useReferralClaims({
-    proxy, deployBlock, userFilter: scope==="mine" ? (address ?? null) : null
-  });
 
-  const totYY = Number(formatUnits(totals.y, 18));
-  const totSY = Number(formatUnits(totals.s, 18));
-  const totPY = Number(formatUnits(totals.p, 18));
+// Drop-in replacement for ReferralTab (summary only, no block/time)
+const ReferralTab: React.FC<{ yyDecimals?: number; refreshSignal: number; onRefetched?: () => void; }> = ({ refreshSignal, onRefetched }) => {
+  const { address } = useAccount();
+  const { loading, rows, totals, error, refetch } = useReferralEarningsMine({ user: address });
+
+  useEffect(() => {
+    if (refreshSignal > 0) { (async () => { await refetch(); onRefetched?.(); })(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
+
+  // token addresses from env (lowercased)
+  const yyAddr = (import.meta.env.VITE_YYEARN_ADDRESS as string)?.toLowerCase() || "0x0000000000000000000000000000000000000000";
+  const syAddr = (import.meta.env.VITE_SYEARN_ADDRESS as string)?.toLowerCase() || "0x0000000000000000000000000000000000000000";
+  const pyAddr = (import.meta.env.VITE_PYEARN_ADDRESS as string)?.toLowerCase() || "0x0000000000000000000000000000000000000000";
+
+  // Aggregate per referee (summary)
+  type Agg = { referee: Address; yy: bigint; sy: bigint; py: bigint };
+  const perReferee = useMemo(() => {
+    const m = new Map<string, Agg>();
+    for (const r of rows) {
+      const key = r.referee.toLowerCase();
+      const cur = m.get(key) ?? { referee: r.referee, yy: 0n, sy: 0n, py: 0n };
+      const token = r.token.toLowerCase();
+      if (token === yyAddr) cur.yy += r.amount;
+      else if (token === syAddr) cur.sy += r.amount;
+      else if (token === pyAddr) cur.py += r.amount;
+      m.set(key, cur);
+    }
+    // sort by total YY+SY+PY desc (optional)
+    return Array.from(m.values()).sort((a,b)=>{
+      const as = a.yy + a.sy + a.py;
+      const bs = b.yy + b.sy + b.py;
+      return bs > as ? 1 : bs < as ? -1 : 0;
+    });
+  }, [rows, yyAddr, syAddr, pyAddr]);
+
+  // Totals strip (assume 18 decimals for all)
+  const sumYY = Number(formatUnits(totals.byToken.get(yyAddr) ?? 0n, 18));
+  const sumSY = Number(formatUnits(totals.byToken.get(syAddr) ?? 0n, 18));
+  const sumPY = Number(formatUnits(totals.byToken.get(pyAddr) ?? 0n, 18));
 
   return (
     <>
-      {/* Header row */}
+      {/* Header */}
       <div className="hidden md:grid grid-cols-12 px-3 py-2 text-[11px] text-gray-400 bg-white/5 rounded-t-xl">
-        <div className="col-span-4">User</div>
+        <div className="col-span-6">From (referee)</div>
         <div className="col-span-2 text-right">YY</div>
         <div className="col-span-2 text-right">SY</div>
         <div className="col-span-2 text-right">PY</div>
-        <div className="col-span-2 text-right">Block / Time</div>
       </div>
 
       <div className="max-h-[60vh] overflow-auto divide-y divide-white/5 rounded-b-xl">
-        {loading && (<><div className="p-4"><Progress/></div>{Array.from({length:6}).map((_,i)=><SkeletonRow key={i} cols={5}/>)}</>)}
+        {loading && (<><div className="p-4"><Progress/></div>{Array.from({length:6}).map((_,i)=><SkeletonRow key={i} cols={4}/>)}</>)}
         {!loading && error && <div className="p-4 text-rose-300 text-sm">{error}</div>}
-        {!loading && !error && logs.length===0 && (
+        {!loading && !error && perReferee.length===0 && (
           <div className="p-6">
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-gray-200">
-              {scope==="mine" ? "No referral claims yet." : "No ReferralRewardsClaimed events found."}
+              No referral earnings yet.
+              <div className="mt-2 text-[11px] opacity-70">Click Refresh to load.</div>
             </div>
           </div>
         )}
 
-        {!loading && !error && logs.map((l, idx) => {
-          const y = Number(formatUnits(l.y, 18));
-          const s = Number(formatUnits(l.s, 18));
-          const p = Number(formatUnits(l.p, 18));
-          const when = l.ts ? new Date(l.ts * 1000) : undefined;
+        {!loading && !error && perReferee.map((agg, idx) => {
+          const yy = Number(formatUnits(agg.yy, 18));
+          const sy = Number(formatUnits(agg.sy, 18));
+          const py = Number(formatUnits(agg.py, 18));
 
           return (
-            <React.Fragment key={`${l.txHash}-${idx}`}>
+            <React.Fragment key={`${agg.referee}-${idx}`}>
               {/* Desktop row */}
               <div className="px-3 py-2 hidden md:grid grid-cols-12 gap-1 text-xs text-gray-200">
-                <div className="col-span-4 font-mono break-all">{l.user}</div>
-                <div className="col-span-2 text-right">YY {y.toLocaleString()}</div>
-                <div className="col-span-2 text-right">SY {s.toLocaleString()}</div>
-                <div className="col-span-2 text-right">PY {p.toLocaleString()}</div>
-                <div className="col-span-2 text-right text-gray-400">#{l.blockNumber.toString()} {when ? "• " + when.toLocaleString() : ""}</div>
+                <div className="col-span-6 font-mono break-all">{agg.referee}</div>
+                <div className="col-span-2 text-right">{yy.toLocaleString()}</div>
+                <div className="col-span-2 text-right">{sy.toLocaleString()}</div>
+                <div className="col-span-2 text-right">{py.toLocaleString()}</div>
               </div>
 
               {/* Mobile card */}
               <div className="md:hidden p-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                  <div className="font-mono text-[11px] text-gray-300 break-all">{l.user}</div>
+                  <div className="text-[11px] text-gray-400">From</div>
+                  <div className="font-mono text-[11px] text-gray-300 break-all">{agg.referee}</div>
                   <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-lg bg-[#0f1424] px-2 py-1 text-xs text-indigo-200">YY {y.toLocaleString()}</div>
-                    <div className="rounded-lg bg-[#0f1424] px-2 py-1 text-xs text-indigo-200">SY {s.toLocaleString()}</div>
-                    <div className="rounded-lg bg-[#0f1424] px-2 py-1 text-xs text-indigo-200">PY {p.toLocaleString()}</div>
+                    <div className="rounded-lg bg-[#0f1424] px-2 py-1 text-xs text-indigo-200">YY {yy.toLocaleString()}</div>
+                    <div className="rounded-lg bg-[#0f1424] px-2 py-1 text-xs text-indigo-200">SY {sy.toLocaleString()}</div>
+                    <div className="rounded-lg bg-[#0f1424] px-2 py-1 text-xs text-indigo-200">PY {py.toLocaleString()}</div>
                   </div>
-                  <div className="text-[11px] text-gray-400 text-right">#{l.blockNumber.toString()} {when ? "• " + when.toLocaleString() : ""}</div>
                 </div>
               </div>
             </React.Fragment>
@@ -393,19 +454,25 @@ const ReferralTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> 
 
       {/* Totals strip */}
       <div className="px-3 sm:px-4 py-3 flex flex-wrap items-center gap-2">
-        <StatPill label="YY" value={totYY.toLocaleString()} />
-        <StatPill label="SY" value={totSY.toLocaleString()} />
-        <StatPill label="PY" value={totPY.toLocaleString()} />
+        <StatPill label="YY total" value={sumYY.toLocaleString()} />
+        <StatPill label="SY total" value={sumSY.toLocaleString()} />
+        <StatPill label="PY total" value={sumPY.toLocaleString()} />
       </div>
     </>
   );
 };
 
-const StarTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = ({ proxy, deployBlock, scope, yyDecimals = 18 }) => {
+
+
+
+const StarTab: React.FC<{ yyDecimals?: number; refreshSignal: number; onRefetched?: () => void; }> = ({ yyDecimals = 18, refreshSignal, onRefetched }) => {
   const { address } = useAccount();
-  const { loading, logs, totals, error, refetch } = useStarClaims({
-    proxy, deployBlock, userFilter: scope==="mine" ? (address ?? null) : null
-  });
+  const { loading, logs, totals, error, refetch } = useStarClaimsMine({ user: address });
+
+  useEffect(() => {
+    if (refreshSignal > 0) { (async () => { await refetch(); onRefetched?.(); })(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
 
   const grandYY = Number(formatUnits(totals.grand, yyDecimals));
   const L = (n:number) => Number(formatUnits(totals.perLevel.get(n) ?? 0n, yyDecimals));
@@ -424,7 +491,8 @@ const StarTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = ({
         {!loading && error && <div className="p-4 text-rose-300 text-sm">{error}</div>}
         {!loading && !error && logs.length===0 && (
           <div className="p-6"><div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-gray-200">
-            {scope==="mine" ? "No star level claims yet." : "No StarRewardClaimed events found."}
+            No star level claims yet.
+            <div className="mt-2 text-[11px] opacity-70">Click Refresh to load.</div>
           </div></div>
         )}
 
@@ -440,7 +508,6 @@ const StarTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = ({
                 <div className="md:col-span-3 text-right text-gray-400">#{l.blockNumber.toString()} {when?"• "+when.toLocaleString():""}</div>
               </div>
 
-              {/* Mobile card */}
               <div className="md:hidden p-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
                   <div className="font-mono text-[11px] text-gray-300 break-all">{l.user}</div>
@@ -468,11 +535,14 @@ const StarTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = ({
   );
 };
 
-const GoldenTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = ({ proxy, deployBlock, scope, yyDecimals = 18 }) => {
+const GoldenTab: React.FC<{ yyDecimals?: number; refreshSignal: number; onRefetched?: () => void; }> = ({ yyDecimals = 18, refreshSignal, onRefetched }) => {
   const { address } = useAccount();
-  const { loading, logs, total, error, refetch } = useGoldenStarClaims({
-    proxy, deployBlock, userFilter: scope==="mine" ? (address ?? null) : null
-  });
+  const { loading, logs, total, error, refetch } = useGoldenStarClaimsMine({ user: address });
+
+  useEffect(() => {
+    if (refreshSignal > 0) { (async () => { await refetch(); onRefetched?.(); })(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
 
   const totYY = Number(formatUnits(total, yyDecimals));
 
@@ -489,7 +559,8 @@ const GoldenTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = 
         {!loading && error && <div className="p-4 text-rose-300 text-sm">{error}</div>}
         {!loading && !error && logs.length===0 && (
           <div className="p-6"><div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-gray-200">
-            {scope==="mine" ? "No golden star claims yet." : "No GoldenStarRewardClaimed events found."}
+            No golden star claims yet.
+            <div className="mt-2 text-[11px] opacity-70">Click Refresh to load.</div>
           </div></div>
         )}
 
@@ -504,7 +575,6 @@ const GoldenTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = 
                 <div className="md:col-span-3 text-right text-gray-400">#{l.blockNumber.toString()} {when?"• "+when.toLocaleString():""}</div>
               </div>
 
-              {/* Mobile card */}
               <div className="md:hidden p-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
                   <div className="font-mono text-[11px] text-gray-300 break-all">{l.user}</div>
@@ -525,7 +595,7 @@ const GoldenTab: React.FC<BaseProps & { scope: Scope; yyDecimals?: number; }> = 
 };
 
 /* =========================================================
-   MAIN: ClaimsHubPanel
+   MAIN: ClaimsHubPanel (mine-only)
    ========================================================= */
 const ClaimsHubPanel: React.FC<ClaimsHubPanelProps> = ({
   proxy,
@@ -535,19 +605,38 @@ const ClaimsHubPanel: React.FC<ClaimsHubPanelProps> = ({
 }) => {
   const { address } = useAccount();
   const [tab, setTab] = useState<TabKey>(defaultTab);
-  const [scope, setScope] = useState<Scope>("mine");
 
-  // Tab config for pretty labels + icons
-  const tabs: Array<{ key: TabKey; label: string; Icon: React.FC<any>; accent: string }> = [
-    { key: "referral", label: "Referral", Icon: Sparkles, accent: "from-purple-500 to-blue-500" },
-    { key: "star",     label: "Star Levels", Icon: Star,  accent: "from-amber-400 to-rose-500" },
-    { key: "golden",   label: "Golden Star", Icon: Crown, accent: "from-yellow-400 to-amber-500" },
+  // manual refresh signaling
+  const [refreshSignal, setRefreshSignal] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const inFlight = useRef(false);
+
+  const bumpRefresh = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setRefreshing(true);
+    try {
+      setRefreshSignal((n) => n + 1);
+    } finally {
+      // cleared in onRefetched
+    }
+  };
+
+  const handleRefetched = () => {
+    setLastUpdated(Date.now());
+    setRefreshing(false);
+    inFlight.current = false;
+  };
+
+  const tabs: Array<{ key: TabKey; label: string; Icon: React.FC<any> }> = [
+    { key: "referral", label: "Referral", Icon: Sparkles },
+    { key: "star",     label: "Star Levels", Icon: Star },
+    { key: "golden",   label: "Golden Star", Icon: Crown },
   ];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10
-                    bg-gradient-to-b from-[#0b1222] to-[#0a0f1c]">
-      {/* Glow ring */}
+    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0b1222] to-[#0a0f1c]">
       <div className="pointer-events-none absolute -inset-px rounded-2xl"
            style={{ background: "linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02))" }} />
 
@@ -574,36 +663,65 @@ const ClaimsHubPanel: React.FC<ClaimsHubPanelProps> = ({
             })}
           </div>
 
-          {/* Scope */}
+          {/* Mine marker only */}
           <div className="ml-auto inline-flex rounded-xl overflow-hidden border border-white/10">
-            <button
-              onClick={() => setScope("mine")}
-              className={"px-3 py-1.5 text-xs font-semibold flex items-center gap-1 " + (scope==="mine" ? "bg-white/15 text-white" : "bg-white/5 text-gray-300 hover:text-white")}
-              title="Show only my claims"><User className="w-4 h-4" /> Mine</button>
-            <button
-              onClick={() => setScope("all")}
-              className={"px-3 py-1.5 text-xs font-semibold flex items-center gap-1 " + (scope==="all" ? "bg-white/15 text-white" : "bg-white/5 text-gray-300 hover:text-white")}
-              title="Show all users"><Users className="w-4 h-4" /> All</button>
+            <div className="px-3 py-1.5 text-xs font-semibold flex items-center gap-1 bg-white/15 text-white" title="My data only">
+              <User className="w-4 h-4" /> Mine
+            </div>
           </div>
         </div>
 
-        {/* Meta line */}
+        {/* Meta line + Refresh */}
         <div className="px-3 sm:px-4 pb-3 flex flex-wrap items-center gap-2">
           <StatPill label="Network" value="Base Sepolia" />
           {deployBlock ? <StatPill label="Since block" value={deployBlock.toString()} /> : null}
-          {scope === "mine" && <AddressPill address={address} />}
-          <div className="ml-auto text-[11px] text-gray-400 flex items-center gap-2">
-            <Search className="w-4 h-4" /> Live updates enabled
+          <AddressPill address={address} />
+
+          <div className="ml-auto flex items-center gap-3">
+            {lastUpdated && (
+              <span className="text-[11px] text-gray-400">Updated {new Date(lastUpdated).toLocaleTimeString()}</span>
+            )}
+            <button
+              onClick={bumpRefresh}
+              disabled={refreshing || inFlight.current}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition
+                ${!(refreshing || inFlight.current)
+                  ? "border-white/15 hover:bg-white/5 text-white"
+                  : "border-white/10 opacity-60 cursor-not-allowed text-gray-300"}`}
+              title="Refresh"
+            >
+              <RefreshCcw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-3 sm:p-4">
-        <div className="rounded-2xl border border-white/10 bg-[#0f1424] overflow-hidden">
-          {tab === "referral" && <ReferralTab proxy={proxy} deployBlock={deployBlock} scope={scope} />}
-          {tab === "star"     && <StarTab     proxy={proxy} deployBlock={deployBlock} scope={scope} yyDecimals={yyDecimals} />}
-          {tab === "golden"   && <GoldenTab   proxy={proxy} deployBlock={deployBlock} scope={scope} yyDecimals={yyDecimals} />}
+        <div className="rounded-2xl border border-white/10 bg-[#0f1424] overflow-hidden"
+             key={`${tab}-${(address ?? "").toLowerCase()}`}
+        >
+          {tab === "referral" && (
+            <ReferralTab
+              refreshSignal={refreshSignal}
+              onRefetched={handleRefetched}
+            />
+          )}
+          {tab === "star" && (
+            <StarTab
+              yyDecimals={yyDecimals}
+              refreshSignal={refreshSignal}
+              onRefetched={handleRefetched}
+            />
+          )}
+          {tab === "golden" && (
+            <GoldenTab
+              yyDecimals={yyDecimals}
+              refreshSignal={refreshSignal}
+              onRefetched={handleRefetched}
+            />
+          )}
         </div>
       </div>
     </div>

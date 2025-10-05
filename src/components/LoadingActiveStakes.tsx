@@ -1,3 +1,4 @@
+// src/components/LoadingActiveStakes.tsx
 import React from "react";
 
 /** Spinning YY token (SVG, no image fetch) */
@@ -71,7 +72,8 @@ const LoadingActiveStakes: React.FC = () => {
         <YYSpinner />
         <div className="flex flex-col">
           <div className="text-gray-100 font-medium">Loading active stakes…</div>
-          <div className="text-xs text-gray-400">Reading on-chain packages & user positions</div>
+          {/* Updated copy to reflect subgraph */}
+          <div className="text-xs text-gray-400">Fetching packages & user positions from subgraph</div>
         </div>
       </div>
 
@@ -102,7 +104,7 @@ const LoadingActiveStakes: React.FC = () => {
 
       {/* A11y live region */}
       <div className="sr-only" aria-live="polite">
-        Loading active stakes. Reading packages, balances, and claim windows.
+        Loading active stakes. Fetching packages and positions from the subgraph.
       </div>
     </div>
   );

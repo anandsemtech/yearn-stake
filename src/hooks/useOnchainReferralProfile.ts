@@ -1,376 +1,234 @@
 // src/hooks/useOnchainReferralProfile.ts
-import { useEffect, useState } from "react";
-import type { Address } from "viem";
-import { formatUnits } from "viem";
-import { usePublicClient } from "wagmi";
-import { STAKING_ABI } from "@/web3/abi/stakingAbi";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { gql, subgraph } from "@/lib/subgraph";
 
-/** ENV */
-const PROXY =
-  (import.meta.env.VITE_BASE_CONTRACT_ADDRESS as `0x${string}`) ??
-  "0x0000000000000000000000000000000000000000";
-const YY =
-  (import.meta.env.VITE_YYEARN as `0x${string}`) ??
-  "0x0000000000000000000000000000000000000000";
-const SY =
-  (import.meta.env.VITE_SYEARN as `0x${string}`) ??
-  "0x0000000000000000000000000000000000000000";
-const PY =
-  (import.meta.env.VITE_PYEARN as `0x${string}`) ??
-  "0x0000000000000000000000000000000000000000";
+/** ===== Formatting helper (kept same export name/signature) ===== */
+export function fmt(v: bigint, decimals = 18): string {
+  try {
+    if (decimals <= 0) return v.toString();
+    const s = v.toString().padStart(decimals + 1, "0");
+    const i = s.length - decimals;
+    const whole = s.slice(0, i) || "0";
+    const frac = s.slice(i).replace(/0+$/, "");
+    const withCommas = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return frac ? `${withCommas}.${frac}` : withCommas;
+  } catch {
+    return v.toString();
+  }
+}
 
-const REF_SOURCE =
-  (import.meta.env.VITE_REF_SOURCE as "history" | "events" | "auto") ?? "auto";
-const LOGS_FROM_BLOCK =
-  typeof import.meta.env.VITE_LOGS_FROM_BLOCK === "string" &&
-  import.meta.env.VITE_LOGS_FROM_BLOCK !== ""
-    ? (BigInt(import.meta.env.VITE_LOGS_FROM_BLOCK) as bigint)
-    : (0n as const);
+/* ===================== Queries ===================== */
 
-const TEST_REFERRER = (import.meta.env.VITE_TEST_REFERRER as string | undefined)?.toLowerCase();
-const TEST_REFEREE = import.meta.env.VITE_TEST_REFEREE as Address | undefined;
+const Q_USER = gql/* GraphQL */ `
+  query UserTotal($id: ID!) {
+    user(id: $id) { id totalStaked }
+  }
+`;
 
-const ZERO: Address = "0x0000000000000000000000000000000000000000";
+/** Get referrals for a set of referrers. We’ll paginate client-side. */
+const Q_REFS = gql/* GraphQL */ `
+  query Refs($referrers: [String!], $first: Int!, $skip: Int!) {
+    referrals(where: { referrer_in: $referrers }, first: $first, skip: $skip, orderBy: id, orderDirection: asc) {
+      referrer { id }
+      referee  { id totalStaked }
+    }
+  }
+`;
 
-/** TYPES */
-type StakeData = {
-  totalStaked: bigint;
-  claimedAPR: bigint;
-  withdrawnPrincipal: bigint;
-  startTime: bigint;
-  lastClaimedAt: bigint;
-  lastUnstakedAt: bigint;
-  packageId: number;
-  isFullyUnstaked: boolean;
-};
+/** Pull all stakes for a set of users just to count them client-side. */
+const Q_STAKES = gql/* GraphQL */ `
+  query StakesCounts($users: [String!], $first: Int!, $skip: Int!) {
+    stakes(where: { user_in: $users }, first: $first, skip: $skip) {
+      user { id }
+      id
+    }
+  }
+`;
 
-export type RefAggRow = {
-  addr: Address;
-  stakes: number;   // number of stakes by this referee
-  totalYY: bigint;  // ALWAYS from userTotalStaked(ref) if > 0, else fallback to sum(splits)
-  yy: bigint;       // split sum (may be 0 if not recoverable)
-  sy: bigint;       // split sum (may be 0 if not recoverable)
-  py: bigint;       // split sum (may be 0 if not recoverable)
-};
+/* ===================== Helpers ===================== */
 
-export type LevelInfo = {
-  level: number;    // 1..15
-  totalYY: bigint;  // sum of rows' totalYY
-  rows: RefAggRow[]; // entries for this level
-};
+type RefRow = { addr: string; stakes: number; totalYY: bigint };
+type Lvl = { level: number; rows: RefRow[]; totalYY: bigint };
 
-export type OnchainProfile = {
-  loading: boolean;
-  error?: string;
-
-  // Level 1 (directs) — preserved for existing UI
-  refRows: RefAggRow[];
-  refCount: number;
-
-  // New: multi-level 1..15 (if available)
-  levels?: LevelInfo[];
-
-  // Current user
-  myTotalYY: bigint;   // your wallet's total staked (YY)
-  myTotalsYY: bigint;  // kept for backward compatibility (same as myTotalYY)
-  activePackages: number;
-  referredBy?: Address;
-
-  // Earnings
-  earningsYY: bigint;
-  earningsSY: bigint;
-  earningsPY: bigint;
-
-  // Token decimals (assumed 18s)
-  decimals: { yy: number; sy: number; py: number };
-};
-
-/** helpers */
-export const fmt = (v: bigint, d = 18, max = 3) =>
-  Number(formatUnits(v ?? 0n, d)).toLocaleString(undefined, {
-    maximumFractionDigits: max,
-  });
-
-const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
-
+const FIRST = 1000;
 const MAX_LEVEL = 15;
-// Safety cap to avoid runaway graph explosions on dev chains
-const MAX_TOTAL_NODES = 2000;
 
-/** HOOK */
-export function useOnchainReferralProfile(user?: Address): OnchainProfile {
-  const client = usePublicClient();
-  const [state, setState] = useState<OnchainProfile>({
-    loading: true,
-    refRows: [],
-    refCount: 0,
-    myTotalYY: 0n,
-    myTotalsYY: 0n,
-    activePackages: 0,
-    referredBy: undefined,
-    earningsYY: 0n,
-    earningsSY: 0n,
-    earningsPY: 0n,
-    decimals: { yy: 18, sy: 18, py: 18 },
-  });
+/** chunk an array (helps with _in filters and pagination) */
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function fetchAllRefsFor(referrersLC: string[]): Promise<{ referrer: string; referee: { id: string; totalStaked: string } }[]> {
+  if (!referrersLC.length) return [];
+  const out: { referrer: string; referee: { id: string; totalStaked: string } }[] = [];
+
+  // break big inputs into chunks for the _in filter
+  for (const group of chunk(referrersLC, 800)) {
+    let skip = 0;
+    // paginate through referrals
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const res = await subgraph.request<{
+        referrals: Array<{
+          referrer: { id: string };
+          referee:  { id: string; totalStaked: string };
+        }>;
+      }>(Q_REFS, { referrers: group, first: FIRST, skip });
+
+      const items = res?.referrals ?? [];
+      if (!items.length) break;
+      for (const it of items) {
+        out.push({ referrer: it.referrer.id, referee: { id: it.referee.id, totalStaked: it.referee.totalStaked } });
+      }
+      if (items.length < FIRST) break;
+      skip += FIRST;
+    }
+  }
+  return out;
+}
+
+async function fetchStakeCountsFor(usersLC: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (!usersLC.length) return counts;
+
+  for (const group of chunk(usersLC, 800)) {
+    let skip = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const res = await subgraph.request<{
+        stakes: Array<{ user: { id: string } }>;
+      }>(Q_STAKES, { users: group, first: FIRST, skip });
+
+      const items = res?.stakes ?? [];
+      if (!items.length) break;
+      for (const it of items) {
+        const id = it.user.id;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      if (items.length < FIRST) break;
+      skip += FIRST;
+    }
+  }
+  return counts;
+}
+
+async function fetchUserTotalYY(userIdLC: string): Promise<bigint> {
+  if (!userIdLC) return 0n;
+  try {
+    const res = await subgraph.request<{ user: { id: string; totalStaked: string } | null }>(Q_USER, { id: userIdLC });
+    return res?.user?.totalStaked ? BigInt(res.user.totalStaked) : 0n;
+  } catch {
+    return 0n;
+  }
+}
+
+/* ===================== Hook (subgraph-only) ===================== */
+
+export function useOnchainReferralProfile(address?: `0x${string}`) {
+  const userId = (address ?? "").toLowerCase();
+
+  const [loading, setLoading] = useState<boolean>(!!userId);
+  const [error, setError] = useState<string | null>(null);
+
+  // First-level rows (kept for back-compat); full levels[] below
+  const [refRows, setRefRows] = useState<RefRow[]>([]);
+  const [levels, setLevels] = useState<Lvl[]>([]);
+  const [myTotalYY, setMyTotalYY] = useState<bigint>(0n);
+
+  const aliveRef = useRef(true);
 
   useEffect(() => {
-    let cancelled = false;
+    aliveRef.current = true;
+    return () => { aliveRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      setError(null);
+      setRefRows([]);
+      setLevels([]);
+      setMyTotalYY(0n);
+      return;
+    }
 
     (async () => {
-      if (!client || !user) {
-        if (!cancelled) setState((s) => ({ ...s, loading: false }));
-        return;
-      }
-
-      setState((s) => ({ ...s, loading: true, error: undefined }));
-
+      setLoading(true);
+      setError(null);
       try {
-        /** basics about current user */
-        const [totalStaked, stakeCount, referredBy, yyEarn, syEarn, pyEarn] =
-          (await client.multicall({
-            allowFailure: false,
-            contracts: [
-              { address: PROXY, abi: STAKING_ABI, functionName: "userTotalStaked", args: [user] },
-              { address: PROXY, abi: STAKING_ABI, functionName: "userStakeCounts", args: [user] },
-              { address: PROXY, abi: STAKING_ABI, functionName: "referrerOf", args: [user] },
-              { address: PROXY, abi: STAKING_ABI, functionName: "referralEarnings", args: [user, YY] },
-              { address: PROXY, abi: STAKING_ABI, functionName: "referralEarnings", args: [user, SY] },
-              { address: PROXY, abi: STAKING_ABI, functionName: "referralEarnings", args: [user, PY] },
-            ],
-          })) as [bigint, bigint, Address, bigint, bigint, bigint];
+        // 1) My total from subgraph
+        const myTotal = await fetchUserTotalYY(userId);
+        if (!aliveRef.current) return;
+        setMyTotalYY(myTotal);
 
-        // active packages count
-        const myStakesCalls =
-          Number(stakeCount) > 0
-            ? Array.from({ length: Number(stakeCount) }, (_, i) => ({
-                address: PROXY,
-                abi: STAKING_ABI,
-                functionName: "getStake",
-                args: [user, BigInt(i)],
-              }))
-            : [];
-        const myStakes = (myStakesCalls.length
-          ? await client.multicall({ contracts: myStakesCalls, allowFailure: true })
-          : []) as (StakeData | null)[];
-        let activePackages = 0;
-        for (const st of myStakes) if (st && !st.isFullyUnstaked) activePackages++;
+        // 2) BFS-ish up to 15 levels
+        const resultLevels: Lvl[] = [];
+        let frontier = [userId];
+        const seen = new Set<string>([userId]);
 
-        /** helpers to get referees for an address */
-        const getRefereesFromHistory = async (addr: Address) => {
-          try {
-            return ((await client.readContract({
-              address: PROXY,
-              abi: STAKING_ABI,
-              functionName: "getReferredUsers",
-              args: [addr],
-            })) || []) as Address[];
-          } catch {
-            return [];
-          }
-        };
-        const getRefereesFromEvents = async (addr: Address) => {
-          try {
-            // event ReferralAssigned(address indexed user, address indexed referrer)
-            const logs = await client.getLogs({
-              address: PROXY,
-              // @ts-ignore
-              event: { abi: STAKING_ABI, eventName: "ReferralAssigned" },
-              args: { referrer: addr },
-              fromBlock: LOGS_FROM_BLOCK,
-              toBlock: "latest",
-            });
-            return (logs.map((l: any) => l?.args?.user as Address).filter(Boolean) as Address[]) || [];
-          } catch {
-            return [];
-          }
-        };
-        const getReferees = async (addr: Address) => {
-          if (REF_SOURCE === "history") return getRefereesFromHistory(addr);
-          if (REF_SOURCE === "events") return getRefereesFromEvents(addr);
-          const h = await getRefereesFromHistory(addr);
-          if (h && h.length) return h;
-          return getRefereesFromEvents(addr);
-        };
+        for (let lvl = 1; lvl <= MAX_LEVEL; lvl++) {
+          // get referrals whose referrer is in `frontier`
+          const refs = await fetchAllRefsFor(frontier);
+          if (!aliveRef.current) return;
 
-        /** Build level 1 (directs) first with full detail (including splits) */
-        const me = user.toLowerCase();
-        let level1 = await getReferees(user);
-        level1 = uniq(level1.filter((a) => a && a !== ZERO && a.toLowerCase() !== me));
+          if (!refs.length) break;
 
-        /** DEV override: inject test referee under TEST_REFERRER */
-        if (TEST_REFERRER && TEST_REFEREE && me === TEST_REFERRER.toLowerCase()) {
-          if (!level1.find((x) => x.toLowerCase() === TEST_REFEREE.toLowerCase())) {
-            level1.push(TEST_REFEREE);
-          }
-        }
-
-        // Aggregate level 1 with splits (your original logic)
-        const refRows: RefAggRow[] = [];
-        for (const ref of level1) {
-          // fast pass: totals + count
-          const [refTotalYY, refStakeCount] =
-            (await client.multicall({
-              allowFailure: false,
-              contracts: [
-                { address: PROXY, abi: STAKING_ABI, functionName: "userTotalStaked", args: [ref] },
-                { address: PROXY, abi: STAKING_ABI, functionName: "userStakeCounts", args: [ref] },
-              ],
-            })) as [bigint, bigint];
-
-          const stakesN = Number(refStakeCount ?? 0n);
-          let totalYY = refTotalYY ?? 0n; // prefer mapping
-          let yy = 0n, sy = 0n, py = 0n;
-
-          if (stakesN > 0) {
-            // pull stake structs
-            const stakeCalls = Array.from({ length: stakesN }, (_, i) => ({
-              address: PROXY,
-              abi: STAKING_ABI,
-              functionName: "getStake",
-              args: [ref, BigInt(i)],
-            }));
-            const refStakes = (await client.multicall({
-              contracts: stakeCalls,
-              allowFailure: true,
-            })) as (StakeData | null)[];
-
-            // token splits
-            let computedSplitTotal = 0n;
-            for (let i = 0; i < refStakes.length; i++) {
-              const tokenCalls = [0, 1, 2].map((slot) => ({
-                address: PROXY,
-                abi: STAKING_ABI,
-                functionName: "userStakeTokenAmounts",
-                args: [ref, BigInt(i), BigInt(slot)],
-              }));
-              const tokenRows = await client.multicall({
-                contracts: tokenCalls,
-                allowFailure: true,
-              });
-
-              let stakeYY = 0n, stakeSY = 0n, stakePY = 0n;
-              for (const r of tokenRows) {
-                if (!r) continue;
-                const rec = r as unknown as { token: Address; amount: bigint };
-                if (!rec?.token) continue;
-                const t = rec.token.toLowerCase();
-                if (t === YY.toLowerCase()) stakeYY += rec.amount ?? 0n;
-                else if (t === SY.toLowerCase()) stakeSY += rec.amount ?? 0n;
-                else if (t === PY.toLowerCase()) stakePY += rec.amount ?? 0n;
-              }
-
-              yy += stakeYY; sy += stakeSY; py += stakePY;
-              computedSplitTotal += stakeYY + stakeSY + stakePY;
-            }
-
-            if (totalYY === 0n && computedSplitTotal > 0n) {
-              totalYY = computedSplitTotal;
-            }
-          }
-
-          refRows.push({ addr: ref, stakes: Number(stakesN), totalYY, yy, sy, py });
-        }
-
-        /** ===== Multi-level expansion (2..15) =====
-         *  Breadth-first traversal. For L>=2 we compute (addr, stakes, totalYY)
-         *  without drilling token splits to keep RPC load healthy.
-         */
-        const levels: LevelInfo[] = [];
-        // Seed level 1 from refRows
-        const level1Total = refRows.reduce<bigint>((a, r) => a + (r.totalYY ?? 0n), 0n);
-        levels.push({ level: 1, totalYY: level1Total, rows: refRows });
-
-        const visited = new Set<string>();
-        for (const a of level1) visited.add(a.toLowerCase());
-
-        let frontier = [...level1];
-        let totalNodes = frontier.length;
-
-        for (let L = 2; L <= MAX_LEVEL; L++) {
-          if (!frontier.length || totalNodes >= MAX_TOTAL_NODES) break;
-
-          // Get referees for all addresses in the previous level in parallel
-          const nextCandidatesNested = await Promise.all(
-            frontier.map((addr) => getReferees(addr))
-          );
-          let next: Address[] = [];
-          for (const arr of nextCandidatesNested) next.push(...arr);
-
-          // Normalize + dedupe + avoid cycles/self
-          const filtered = uniq(
-            next.filter((a) => {
-              const low = a?.toLowerCase?.();
-              return a && a !== ZERO && low && low !== me && !visited.has(low);
-            })
+          // referees of this level (dedupe)
+          const referees = Array.from(
+            new Set(refs.map((r) => r.referee.id.toLowerCase()).filter((id) => !seen.has(id)))
           );
 
-          // Mark visited, apply global safety cap
-          for (const a of filtered) visited.add(a.toLowerCase());
-          totalNodes += filtered.length;
-          if (totalNodes > MAX_TOTAL_NODES) {
-            filtered.splice(MAX_TOTAL_NODES - (totalNodes - filtered.length));
-          }
+          // mark seen & prepare next frontier
+          referees.forEach((id) => seen.add(id));
+          frontier = referees.length ? referees : [];
 
-          if (!filtered.length) break;
+          // count stakes of this level (client-side aggregate)
+          const stakeCounts = await fetchStakeCountsFor(referees);
+          if (!aliveRef.current) return;
 
-          // Batch totals + counts for this level
-          const contracts = filtered.flatMap((addr) => ([
-            { address: PROXY, abi: STAKING_ABI, functionName: "userTotalStaked", args: [addr] },
-            { address: PROXY, abi: STAKING_ABI, functionName: "userStakeCounts", args: [addr] },
-          ]));
-          const results = await client.multicall({ contracts, allowFailure: true });
-
-          const rowsL: RefAggRow[] = [];
-          for (let i = 0; i < filtered.length; i++) {
-            const addr = filtered[i]!;
-            const totalIdx = i * 2;
-            const countIdx = i * 2 + 1;
-
-            const totalYY = (results[totalIdx] as unknown as bigint) ?? 0n;
-            const stakeCountRef = (results[countIdx] as unknown as bigint) ?? 0n;
-
-            rowsL.push({
+          // rows for this level
+          const lvlRows: RefRow[] = referees.map((addr) => {
+            const totalYY = refs.find((r) => r.referee.id.toLowerCase() === addr)?.referee.totalStaked ?? "0";
+            return {
               addr,
-              stakes: Number(stakeCountRef),
-              totalYY,
-              yy: 0n, sy: 0n, py: 0n, // deep levels: splits omitted for performance
-            });
-          }
-
-          const totalYYLevel = rowsL.reduce<bigint>((a, r) => a + r.totalYY, 0n);
-          levels.push({ level: L, totalYY: totalYYLevel, rows: rowsL });
-
-          // Move frontier
-          frontier = filtered;
-        }
-
-        if (!cancelled) {
-          setState({
-            loading: false,
-            refRows,                           // level 1 details (directs)
-            refCount: level1.length,
-            levels,                            // 1..N levels (includes level 1)
-            myTotalYY: totalStaked ?? 0n,      // NEW field
-            myTotalsYY: totalStaked ?? 0n,     // backward-compatible alias
-            activePackages,
-            referredBy: referredBy === ZERO ? undefined : referredBy,
-            earningsYY: yyEarn ?? 0n,
-            earningsSY: syEarn ?? 0n,
-            earningsPY: pyEarn ?? 0n,
-            decimals: { yy: 18, sy: 18, py: 18 },
+              stakes: stakeCounts.get(addr) ?? 0,
+              totalYY: BigInt(totalYY || "0"),
+            };
           });
+
+          // sum for level
+          const levelSum = lvlRows.reduce<bigint>((acc, r) => acc + (r.totalYY ?? 0n), 0n);
+
+          resultLevels.push({ level: lvl, rows: lvlRows, totalYY: levelSum });
         }
+
+        if (!aliveRef.current) return;
+
+        setLevels(resultLevels);
+        // Keep refRows (first level) populated for existing consumers
+        setRefRows(resultLevels[0]?.rows ?? []);
       } catch (e: any) {
-        if (!cancelled)
-          setState((s) => ({ ...s, loading: false, error: e?.message || "Failed to load" }));
+        if (!aliveRef.current) return;
+        setError(e?.message || "Failed to load referral profile");
+        setLevels([]);
+        setRefRows([]);
+      } finally {
+        if (aliveRef.current) setLoading(false);
       }
     })();
+  }, [userId]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [client, user]);
+  // Decimals (no onchain calls; subgraph doesn’t store decimals; default 18)
+  const decimals = useMemo(() => ({ yy: 18 }), []);
 
-  return state;
+  return {
+    loading,
+    error,
+    refRows,
+    decimals,
+    myTotalYY,
+    levels,
+  };
 }

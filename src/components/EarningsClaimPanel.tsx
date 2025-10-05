@@ -1,52 +1,31 @@
 // src/components/EarningsClaimPanel.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Award, Clock, Star, TrendingUp, Zap } from "lucide-react";
-import { Address, BaseError, ContractFunctionRevertedError, decodeErrorResult, formatUnits } from "viem";
+import { Award, Clock, Star, TrendingUp, Zap, RefreshCcw } from "lucide-react";
+import { Address, formatUnits } from "viem";
 import { baseSepolia } from "viem/chains";
 import {
   useAccount,
   useChainId,
   usePublicClient,
-  useReadContracts,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
 
 import { useWallet } from "@/contexts/hooks/useWallet";
 import { STAKING_ABI } from "@/web3/abi/stakingAbi";
+import { useEarningsSG } from "@/hooks/useEarningsSG";
+import { explainTxError, formatForUser, showUserError, showUserSuccess } from "@/lib/errors";
 
 /* ===== Proxy (staking) address from env ===== */
 const PROXY =
   (import.meta.env.VITE_BASE_CONTRACT_ADDRESS as `0x${string}`) ||
   ("0x0000000000000000000000000000000000000000" as const);
 
-/* ===== ENV tokens (fallback only) ===== */
-const Y_ENV = import.meta.env.VITE_YYEARN_ADDRESS as `0x${string}` | undefined;
-const S_ENV = import.meta.env.VITE_SYEARN_ADDRESS as `0x${string}` | undefined;
-const P_ENV = import.meta.env.VITE_PYEARN_ADDRESS as `0x${string}` | undefined;
-
-/* ===== Minimal ABIs ===== */
-const REFERRAL_EARNINGS_ABI = [
-  {
-    type: "function",
-    name: "referralEarnings",
-    stateMutability: "view",
-    inputs: [
-      { name: "referrer", type: "address" },
-      { name: "token", type: "address" },
-    ],
-    outputs: [{ type: "uint256" }],
-  },
-] as const;
-
-const TOKEN_GETTERS_ABI = [
-  { type: "function", name: "yYearn", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
-  { type: "function", name: "sYearn", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
-  { type: "function", name: "pYearn", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
-] as const;
-
-/* ---------- Dark UI atoms ---------- */
-const DarkCard: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ className, children }) => (
+/* ---------- UI atoms ---------- */
+const DarkCard: React.FC<React.PropsWithChildren<{ className?: string }>> = ({
+  className,
+  children,
+}) => (
   <div
     className={[
       "rounded-2xl p-4 sm:p-5",
@@ -58,20 +37,26 @@ const DarkCard: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ c
   </div>
 );
 
-const Pill: React.FC<{ className?: string; children: React.ReactNode }> = ({ className, children }) => (
-  <span className={["inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border", className || ""].join(" ")}>
+const Pill: React.FC<{ className?: string; children: React.ReactNode }> = ({
+  className,
+  children,
+}) => (
+  <span
+    className={[
+      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border",
+      className || "",
+    ].join(" ")}
+  >
     {children}
   </span>
 );
 
-/* ----------------------------------- */
 type EarningCard = {
   type: "referral" | "star" | "golden";
   title: string;
-  amount: number;
-  availableRaw?: bigint | null;
-  available: number;
-  breakdown?: { y: number; s: number; p: number };
+  available: number; // what user can claim now (display)
+  lifetime?: number; // for “Total Earnings” (referral uses lifetime from SG)
+  breakdown?: { y: number; s: number; p: number }; // referral chips
   nextClaim: Date | null;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   accent: {
@@ -86,7 +71,6 @@ type EarningCard = {
   canWrite: boolean;
   pending: boolean;
   ok?: boolean;
-  err?: Error;
 };
 
 const EarningsClaimPanel: React.FC = () => {
@@ -101,126 +85,35 @@ const EarningsClaimPanel: React.FC = () => {
   const isConnected = Boolean(address);
   const onCorrectChain = chainId === REQUIRED_CHAIN;
 
+  // Subgraph-based referral earnings (lifetime + available)
+  const { totals, loading: sgLoading, refetch, refetchAfterMutation, coolingDown } =
+    useEarningsSG(address);
+
+  // App wallet context (existing)
   const {
-    totalReferralEarnings = 0,
+    totalReferralEarnings = 0, // not used for the referral card; we use subgraph lifetime
     currentStarLevelEarnings = 0,
     pendingGoldenStarRewards = 0,
     refreshTokenBalances,
     refreshWallet,
-  } = useWallet() as {
+  } = (useWallet() as {
     totalReferralEarnings?: number;
     currentStarLevelEarnings?: number;
     pendingGoldenStarRewards?: number;
     refreshTokenBalances?: () => void;
     refreshWallet?: () => void;
-  };
-
-  /* ====== STATE for token addresses (with fallback) ====== */
-  const [onChainY, setOnChainY] = useState<Address | undefined>(undefined);
-  const [onChainS, setOnChainS] = useState<Address | undefined>(undefined);
-  const [onChainP, setOnChainP] = useState<Address | undefined>(undefined);
-  const [usedFallbackEnv, setUsedFallbackEnv] = useState(false);
-
-  /* ====== Batch read token addresses from the proxy ====== */
-  const tokenAddrs = useReadContracts({
-    allowFailure: true,
-    contracts: [
-      { abi: TOKEN_GETTERS_ABI, address: PROXY, functionName: "yYearn" },
-      { abi: TOKEN_GETTERS_ABI, address: PROXY, functionName: "sYearn" },
-      { abi: TOKEN_GETTERS_ABI, address: PROXY, functionName: "pYearn" },
-    ],
-    query: {
-      enabled: Boolean(PROXY && isConnected && onCorrectChain),
-      refetchOnMount: true,
-      refetchOnWindowFocus: false,
-      staleTime: 0,
-    },
-  });
-
-  /* ====== Adopt token getter results (with single-read + ENV fallback) ====== */
-  useEffect(() => {
-    (async () => {
-      if (!publicClient || !PROXY || !isConnected || !onCorrectChain) {
-        setOnChainY(undefined);
-        setOnChainS(undefined);
-        setOnChainP(undefined);
-        return;
-      }
-
-      const yRes = tokenAddrs.data?.[0]?.result as Address | undefined;
-      const sRes = tokenAddrs.data?.[1]?.result as Address | undefined;
-      const pRes = tokenAddrs.data?.[2]?.result as Address | undefined;
-
-      if (yRes && sRes && pRes) {
-        setOnChainY(yRes);
-        setOnChainS(sRes);
-        setOnChainP(pRes);
-        setUsedFallbackEnv(false);
-        return;
-      }
-
-      try {
-        const [ySingle, sSingle, pSingle] = (await Promise.all([
-          publicClient.readContract({ address: PROXY, abi: TOKEN_GETTERS_ABI, functionName: "yYearn" }),
-          publicClient.readContract({ address: PROXY, abi: TOKEN_GETTERS_ABI, functionName: "sYearn" }),
-          publicClient.readContract({ address: PROXY, abi: TOKEN_GETTERS_ABI, functionName: "pYearn" }),
-        ])) as [Address, Address, Address];
-
-        setOnChainY(ySingle);
-        setOnChainS(sSingle);
-        setOnChainP(pSingle);
-        setUsedFallbackEnv(false);
-      } catch {
-        if (Y_ENV && S_ENV && P_ENV) {
-          setOnChainY(Y_ENV as Address);
-          setOnChainS(S_ENV as Address);
-          setOnChainP(P_ENV as Address);
-          setUsedFallbackEnv(true);
-        } else {
-          setOnChainY(undefined);
-          setOnChainS(undefined);
-          setOnChainP(undefined);
-        }
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicClient, PROXY, isConnected, onCorrectChain, tokenAddrs.data?.[0], tokenAddrs.data?.[1], tokenAddrs.data?.[2]]);
-
-  const tokensLoaded = Boolean(onChainY && onChainS && onChainP);
-
-  /* ===== Live referral claimables using the resolved token addresses ===== */
-  const referralClaimables = useReadContracts({
-    allowFailure: true,
-    contracts:
-      tokensLoaded && address
-        ? ([
-            { abi: REFERRAL_EARNINGS_ABI, address: PROXY, functionName: "referralEarnings", args: [address as Address, onChainY as Address] },
-            { abi: REFERRAL_EARNINGS_ABI, address: PROXY, functionName: "referralEarnings", args: [address as Address, onChainS as Address] },
-            { abi: REFERRAL_EARNINGS_ABI, address: PROXY, functionName: "referralEarnings", args: [address as Address, onChainP as Address] },
-          ] as const)
-        : [],
-    query: {
-      enabled: Boolean(tokensLoaded && address && onCorrectChain),
-      refetchOnMount: true,
-      refetchOnWindowFocus: false,
-      staleTime: 0,
-    },
-  });
-
-  const [claimY = 0n, claimS = 0n, claimP = 0n] =
-    (referralClaimables.data?.map((r) => (r?.result as bigint) ?? 0n) as [bigint, bigint, bigint]) ?? [0n, 0n, 0n];
-
-  const referralAvailableRaw = claimY + claimS + claimP;
-  const referralAvailable = Number(formatUnits(referralAvailableRaw, 18));
-  const referralBreakdown = {
-    y: Number(formatUnits(claimY, 18)),
-    s: Number(formatUnits(claimS, 18)),
-    p: Number(formatUnits(claimP, 18)),
-  };
+  }) || {};
 
   /* ===== Writes: simulate → write (force proxy & chain) ===== */
-  const { writeContractAsync, data: txHash, isPending: writePending, error: writeErr } = useWriteContract();
-  const { isLoading: confirmingTx, isSuccess: okTx } = useWaitForTransactionReceipt({ hash: txHash });
+  const {
+    writeContractAsync,
+    data: txHash,
+    isPending: writePending,
+    error: writeErr, // we won't render this directly anymore
+  } = useWriteContract();
+  const { isLoading: confirmingTx, isSuccess: okTx } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
 
   const claimReferral = async () => {
     if (!publicClient) throw new Error("No public client");
@@ -279,24 +172,48 @@ const EarningsClaimPanel: React.FC = () => {
     });
   };
 
+  // After a successful write, auto-refresh subgraph & wallet bits
   useEffect(() => {
-    if (writeErr || okTx) setClaimingType(null);
-  }, [writeErr, okTx]);
+    if (!okTx) return;
 
-  useEffect(() => {
-    if (okTx) {
-      referralClaimables.refetch?.();
-      tokenAddrs.refetch?.();
-      refreshTokenBalances?.();
-      refreshWallet?.();
-    }
+    // Broadcast for any listeners
+    window.dispatchEvent(new CustomEvent("rewards:claimed", { detail: { tx: txHash } }));
+
+    // Backoff poll subgraph until it indexes the new claim
+    void refetchAfterMutation();
+
+    // Keep your other refreshes
+    refreshTokenBalances?.();
+    refreshWallet?.();
+
+    showUserSuccess("Claim submitted", "We’ll refresh your earnings shortly.");
+
+    // Reset local claim state
+    setClaimingType(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [okTx]);
 
+  useEffect(() => {
+    if (writeErr) setClaimingType(null); // safety; don't render writeErr anywhere
+  }, [writeErr]);
+
   /* ===== canWrite flags ===== */
-  const canWriteReferral = isConnected && onCorrectChain && tokensLoaded && referralAvailableRaw > 0n && !writePending && !confirmingTx;
-  const canWriteStar = isConnected && onCorrectChain && (currentStarLevelEarnings || 0) > 0 && !writePending && !confirmingTx;
-  const canWriteGolden = isConnected && onCorrectChain && (pendingGoldenStarRewards || 0) > 0 && !writePending && !confirmingTx;
+  const referralAvailable = Number(formatUnits(totals.availSum, 18));
+  const referralBreakdown = {
+    y: Number(formatUnits(totals.availY, 18)),
+    s: Number(formatUnits(totals.availS, 18)),
+    p: Number(formatUnits(totals.availP, 18)),
+  };
+  const referralLifetime = Number(formatUnits(totals.lifeSum, 18));
+
+  const canWriteReferral =
+    isConnected && onCorrectChain && totals.availSum > 0n && !writePending && !confirmingTx;
+
+  const canWriteStar =
+    isConnected && onCorrectChain && (currentStarLevelEarnings || 0) > 0 && !writePending && !confirmingTx;
+
+  const canWriteGolden =
+    isConnected && onCorrectChain && (pendingGoldenStarRewards || 0) > 0 && !writePending && !confirmingTx;
 
   /* ===== Cards ===== */
   const earnings: EarningCard[] = useMemo(
@@ -304,11 +221,12 @@ const EarningsClaimPanel: React.FC = () => {
       {
         type: "referral",
         title: "Referral Earnings",
-        amount: totalReferralEarnings,
-        availableRaw: referralAvailableRaw,
+        // Show AVAILABLE in the card headline
         available: referralAvailable,
+        // Lifetime used to compute the global “Total Earnings” header
+        lifetime: referralLifetime,
         breakdown: referralBreakdown,
-        nextClaim: new Date(),
+        nextClaim: new Date(), // immediate when > 0
         icon: TrendingUp,
         accent: {
           iconBg: "bg-blue-600/20",
@@ -322,15 +240,12 @@ const EarningsClaimPanel: React.FC = () => {
         canWrite: canWriteReferral,
         pending: writePending || confirmingTx,
         ok: okTx,
-        err: writeErr as Error | undefined,
       },
       {
         type: "star",
         title: "Star Level Earnings",
-        amount: currentStarLevelEarnings,
-        availableRaw: null,
         available: currentStarLevelEarnings,
-        nextClaim: new Date(),
+        nextClaim: new Date(), // depends on your contract rules
         icon: Star,
         accent: {
           iconBg: "bg-purple-600/20",
@@ -344,13 +259,10 @@ const EarningsClaimPanel: React.FC = () => {
         canWrite: canWriteStar,
         pending: writePending || confirmingTx,
         ok: okTx,
-        err: writeErr as Error | undefined,
       },
       {
         type: "golden",
         title: "Golden Star Earnings",
-        amount: pendingGoldenStarRewards,
-        availableRaw: null,
         available: pendingGoldenStarRewards,
         nextClaim: null,
         icon: Award,
@@ -366,60 +278,43 @@ const EarningsClaimPanel: React.FC = () => {
         canWrite: canWriteGolden,
         pending: writePending || confirmingTx,
         ok: okTx,
-        err: writeErr as Error | undefined,
       },
     ],
     [
-      totalReferralEarnings,
-      currentStarLevelEarnings,
-      pendingGoldenStarRewards,
-      referralAvailableRaw,
       referralAvailable,
+      referralLifetime,
       referralBreakdown.y,
       referralBreakdown.s,
       referralBreakdown.p,
+      currentStarLevelEarnings,
+      pendingGoldenStarRewards,
       canWriteReferral,
       canWriteStar,
       canWriteGolden,
       writePending,
       confirmingTx,
       okTx,
-      writeErr,
     ]
   );
 
-  /* ===== Friendly revert decoding ===== */
-  const decodeFriendly = (e: unknown) => {
-    if (e instanceof BaseError) {
-      const revert = e.walk((err) => err instanceof ContractFunctionRevertedError) as
-        | ContractFunctionRevertedError
-        | undefined;
-      const data = (revert as any)?.data || (revert as any)?.cause?.data;
-      if (data) {
-        try {
-          const decoded = decodeErrorResult({ abi: STAKING_ABI, data: data as `0x${string}` });
-          const name = decoded.errorName;
-          const args = decoded.args ?? [];
-          return args.length ? `${name}: ${args.map(String).join(", ")}` : name;
-        } catch { /* ignore */ }
-      }
-      return e.shortMessage || e.message;
-    }
-    return (e as Error)?.message ?? String(e);
-  };
-
-  const handleClaim = async (type: string) => {
+  /* ===== Claim click handler (centralized errors) ===== */
+  const handleClaim = async (card: EarningCard) => {
     setFriendlyError(null);
-    const idx = type === "referral" ? 0 : type === "star" ? 1 : 2;
-    const target = earnings[idx];
-    if (!target?.canWrite || typeof target?.onClaim !== "function") return;
+    if (!card?.canWrite || typeof card?.onClaim !== "function") return;
 
     try {
-      setClaimingType(type);
-      await target.onClaim();
+      setClaimingType(card.type);
+      await card.onClaim();
     } catch (e) {
-      const msg = decodeFriendly(e);
-      setFriendlyError(msg);
+      // Map to our unified app error & show toast
+      const txOp = card.type === "referral" ? "claimReferral" : "claim";
+      const appErr = explainTxError(txOp as any, e);
+      showUserError(appErr);
+
+      // Also show a compact inline panel below the grid (mobile-friendly)
+      const { title, body } = formatForUser(txOp as any, appErr);
+      setFriendlyError(appErr.hint ? `${title}: ${body}\n${appErr.hint}` : `${title}: ${body}`);
+
       setClaimingType(null);
     }
   };
@@ -433,45 +328,57 @@ const EarningsClaimPanel: React.FC = () => {
     return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
   };
 
-  const totalAvailable = referralAvailable + currentStarLevelEarnings + pendingGoldenStarRewards;
+  // Global header “Total Earnings” = referral lifetime + current (star + golden)
+  const totalEarningsHeader =
+    referralLifetime + (currentStarLevelEarnings || 0) + (pendingGoldenStarRewards || 0);
 
   return (
     <div className="space-y-6">
-      {/* Header / Total */}
+      {/* Header / Total Earnings + Refresh */}
       <DarkCard>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-base sm:text-lg font-semibold text-white">Earnings</h3>
-            <p className="text-sm text-gray-400">Claim rewards from your referral network and star levels.</p>
+            <p className="text-sm text-gray-400">
+              Claim rewards from your referral network and star levels.
+            </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-emerald-400">
-              ${totalAvailable.toLocaleString()}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => refetch()}
+              disabled={sgLoading || coolingDown}
+              className={[
+                "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs border transition",
+                sgLoading || coolingDown
+                  ? "opacity-60 cursor-not-allowed border-white/10 text-gray-400"
+                  : "border-white/15 hover:bg-white/5 text-white",
+              ].join(" ")}
+              title="Refresh"
+            >
+              <RefreshCcw className={"h-4 w-4 " + (sgLoading ? "animate-spin" : "")} />
+              {sgLoading ? "Refreshing…" : coolingDown ? "Cooling down…" : "Refresh"}
+            </button>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-emerald-400">
+                {totalEarningsHeader.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-400">Total Earnings</div>
             </div>
-            <div className="text-xs text-gray-400">Total Available</div>
           </div>
         </div>
-        {usedFallbackEnv && (
-          <div className="mt-2 text-[12px] text-amber-300">
-            Using ENV token addresses as a fallback while token pointers load…
-          </div>
-        )}
       </DarkCard>
 
       {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {earnings.map((e) => {
-          const isReferral = e.type === "referral";
-          const hasClaimables = isReferral
-            ? ((e.availableRaw as bigint) ?? 0n) > 0n
-            : (e.available || 0) > 0;
-
+          const hasClaimables = (e.available || 0) > 0;
           const isClaimable = hasClaimables && (!e.nextClaim || e.nextClaim <= new Date());
           const isClaiming = claimingType === e.type;
+          const isReferral = e.type === "referral";
 
           return (
             <DarkCard key={e.type} className="hover:bg-gray-780 transition-colors">
-              {/* Icon + amount */}
+              {/* Icon + title + available */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-11 h-11 rounded-xl ${e.accent.iconBg} flex items-center justify-center`}>
@@ -483,11 +390,14 @@ const EarningsClaimPanel: React.FC = () => {
                   </div>
                 </div>
 
+                {/* IMPORTANT: show "Total Available" for referral card */}
                 <div className="text-right shrink-0">
                   <div className="text-lg font-bold text-gray-100">
-                    ${e.amount.toLocaleString()}
+                    {e.available.toLocaleString()}
                   </div>
-                  <div className="text-[11px] text-gray-500">Total earned</div>
+                  <div className="text-[11px] text-gray-500">
+                    {isReferral ? "Total Available" : "Available"}
+                  </div>
                 </div>
               </div>
 
@@ -515,7 +425,7 @@ const EarningsClaimPanel: React.FC = () => {
 
               {/* CTA */}
               <button
-                onClick={() => handleClaim(e.type)}
+                onClick={() => handleClaim(e)}
                 disabled={!isClaimable || e.pending || isClaiming || !e.canWrite}
                 className={[
                   "mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium outline-none",
@@ -536,7 +446,7 @@ const EarningsClaimPanel: React.FC = () => {
                     <span>
                       {e.type === "referral"
                         ? `Claim ${e.available.toLocaleString()}`
-                        : `Claim $${(e.available || 0).toLocaleString()}`}
+                        : `Claim ${e.available.toLocaleString()}`}
                     </span>
                   </>
                 ) : (
@@ -546,59 +456,15 @@ const EarningsClaimPanel: React.FC = () => {
                   </>
                 )}
               </button>
-
-              {/* Error from wagmi write */}
-              {e.err && <div className="mt-2 text-[12px] text-red-400">{e.err.message}</div>}
             </DarkCard>
           );
         })}
       </div>
 
-      {/* Decoded revert / friendly error */}
+      {/* Decoded/friendly error (single compact panel) */}
       {friendlyError && (
         <DarkCard className="border border-rose-700/40 bg-rose-900/10">
-          <div className="text-sm text-rose-300">{friendlyError}</div>
-        </DarkCard>
-      )}
-
-      {/* Claim All */}
-      {totalAvailable > 0 && (
-        <DarkCard className="border-emerald-700">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <div className="text-white font-semibold">Claim All Available Earnings</div>
-              <div className="text-sm text-gray-400">Runs up to 3 transactions (referral, star, golden).</div>
-            </div>
-            <button
-              onClick={async () => {
-                setClaimingType("all");
-                try {
-                  if (canWriteReferral) await claimReferral();
-                  if (canWriteStar) await claimStar();
-                  if (canWriteGolden) await claimGolden();
-                } catch (e) {
-                  const msg = decodeFriendly(e);
-                  setFriendlyError(msg);
-                } finally {
-                  setClaimingType(null);
-                }
-              }}
-              disabled={claimingType === "all"}
-              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white focus-visible:ring-2 focus-visible:ring-emerald-500/40 disabled:opacity-60"
-            >
-              {claimingType === "all" ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
-                  <span>Processing…</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  <span>Claim ${totalAvailable.toLocaleString()}</span>
-                </>
-              )}
-            </button>
-          </div>
+          <div className="text-sm text-rose-300 whitespace-pre-line">{friendlyError}</div>
         </DarkCard>
       )}
     </div>

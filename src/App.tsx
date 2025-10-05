@@ -6,10 +6,10 @@ import { AppKitProvider } from "@/web3/web3.config";
 import Dashboard from "./components/Dashboard";
 import Header from "./components/Header";
 import WelcomeScreen from "./components/WelcomeScreen";
+import ToastHub from "@/components/ui/ToastHub"; // <-- added
 
 function Root() {
-  const { status, isConnected, address, chainId } = useAccount();
-  console.log("[wagmi] status:", status, "isConnected:", isConnected, "addr:", address, "chainId:", chainId);
+  const { status, isConnected } = useAccount();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 relative">
@@ -24,11 +24,11 @@ function Root() {
   );
 }
 
-
 export default function App() {
   return (
     <AppKitProvider>
       <Root />
+      <ToastHub /> {/* mounted once, below providers */}
     </AppKitProvider>
   );
 }

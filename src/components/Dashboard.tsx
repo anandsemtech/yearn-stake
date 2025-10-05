@@ -321,7 +321,7 @@ const Dashboard: React.FC = () => {
           onClaim={async () => { await fetchActivePackages(); }}
           onUnstake={async () => { await fetchActivePackages(); }}
         />
-      </GlassPanel>
+      </GlassPanel> 
 
       {/* Earnings / Affiliate / Events */}
       <div className="mt-8 grid grid-cols-1 gap-8">
