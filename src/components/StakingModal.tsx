@@ -761,6 +761,56 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
           setActionMsg(appErr.message);
           return;
         }
+
+        /* ✅ Injected optimistic Stake row emitter (before showUserSuccess) */
+        try {
+          let stakeIndexStr: string | undefined;
+          let pkgIdNum: number | undefined;
+          let startTsNum: number | undefined;
+
+          for (const log of receipt.logs || []) {
+            try {
+              const decoded = (await publicClient.decodeEventLog({
+                abi: STAKING_ABI as any,
+                data: log.data,
+                topics: log.topics,
+              })) as any;
+              if (decoded?.eventName === "Staked") {
+                const args = decoded.args || {};
+                const userArg: Address | undefined =
+                  (args.user ?? args._user ?? args.account) as Address | undefined;
+                if (!userArg || userArg.toLowerCase() !== address?.toLowerCase()) continue;
+
+                stakeIndexStr = String(
+                  args.stakeIndex ?? args._stakeIndex ?? args.index ?? args.id ?? ""
+                );
+                pkgIdNum = Number(args.packageId ?? args._packageId ?? args.pid ?? args.package ?? pkg.id);
+                startTsNum = Number(args.startTs ?? args.start ?? args.timestamp ?? Math.floor(Date.now() / 1000));
+                break;
+              }
+            } catch {}
+          }
+
+          const amountLabel = `${amountNum.toLocaleString(undefined, { maximumFractionDigits: 6 })}`;
+
+          window.dispatchEvent(
+            new CustomEvent("stake:optimistic", {
+              detail: {
+                user: address,
+                stakeIndex: stakeIndexStr,
+                packageId: pkgIdNum ?? Number(pkg.id),
+                packageName: pkg.name,
+                amountLabel,
+                startTs: startTsNum,
+                txHash: stakeTxHash,
+              },
+            })
+          );
+        } catch (err) {
+          console.warn("Failed to emit optimistic stake event", err);
+        }
+
+        /* existing success flow */
         setStakeConfirmed(true);
         window.dispatchEvent(new CustomEvent("staking:updated"));
         showUserSuccess("Stake submitted", "We’ll refresh your positions in a moment.");
@@ -768,6 +818,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         window.dispatchEvent(new CustomEvent("active-packages:refresh"));
         window.dispatchEvent(new CustomEvent("stakes:changed"));
         onClose();
+
       } catch (e) {
         safeShowEvmError(e, "Stake");
         setActionMsg(safeNormalizeMsg(e));

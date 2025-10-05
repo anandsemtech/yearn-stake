@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, usePublicClient } from "wagmi";
 import { bsc } from "viem/chains";
+import type { Address, Hex, Log } from "viem";
 import LoadingActiveStakes from "./LoadingActiveStakes";
 import { useActiveStakes } from "@/hooks/useActiveStakes";
 import { buildActivePackagesColumns } from "./ActivePackagesColumns";
@@ -43,6 +44,19 @@ const PROXY =
   (import.meta.env.VITE_BASE_CONTRACT_ADDRESS as `0x${string}`) ||
   ("0x0000000000000000000000000000000000000000" as const);
 
+/* -------------------- Optimistic “new stake” rows -------------------- */
+type OptimisticRow = ActivePackageRow & {
+  __optimistic: true;
+  __createdAt: number; // ms
+  __tempId?: string;   // when stakeIndex unknown yet
+};
+const OPTIMISTIC_TTL_MS = 30 * 60 * 1000; // 30 mins
+
+function makeId(user?: string, stakeIndex?: string, fallback?: string) {
+  if (user && stakeIndex) return `${user.toLowerCase()}:${stakeIndex}`;
+  return `temp:${fallback || crypto.randomUUID()}`;
+}
+
 export default function ActivePackages({
   onClaim,
   onUnstake,
@@ -62,7 +76,6 @@ export default function ActivePackages({
   const debouncedRefresh = useMemo(
     () => () => {
       if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
-      // small delay to let the indexer catch up on BSC (still optimistic state used to disable buttons)
       refreshTimer.current = window.setTimeout(() => {
         refresh();
         refreshTimer.current = null;
@@ -71,49 +84,129 @@ export default function ActivePackages({
     [refresh]
   );
 
-  // Listen to app-wide events that indicate on-chain changes
-  useEffect(() => {
-    const bump = () => debouncedRefresh();
-    const events = [
-      "staking:updated",
-      "active-packages:refresh",
-      "stakes:changed",
-      "apr:claimed",
-      "unstaked",
-    ];
-    events.forEach((e) => window.addEventListener(e, bump as EventListener));
-    return () => {
-      events.forEach((e) => window.removeEventListener(e, bump as EventListener));
-      if (refreshTimer.current) {
-        window.clearTimeout(refreshTimer.current);
-        refreshTimer.current = null;
-      }
-    };
-  }, [debouncedRefresh]);
-
   /* -------------------- On-chain log watcher (BSC) -------------------- */
   const publicClient = usePublicClient({ chainId: bsc.id });
   useEffect(() => {
     if (!publicClient) return;
 
-    // Watch contract logs to refresh quickly after confirmations.
-    // We don't rely on ABI event names; any relevant log from the staking proxy will trigger.
     const unwatch = publicClient.watchContractEvent({
       address: PROXY,
       abi: STAKING_ABI as any,
-      // if you know event names: events: ["Staked", "Claimed", "Unstaked"] as any
       onLogs: () => {
-        // Immediately ask table to refresh (debounced)
+        // Catch-ups when subgraph lags but logs are already there
         debouncedRefresh();
       },
-      onError: () => {
-        // ignore; the UI can still refresh via window events
-      },
+      onError: () => {},
       poll: true,
     });
-
     return () => { try { unwatch?.(); } catch {} };
   }, [publicClient, debouncedRefresh]);
+
+  /* ------------------- Optimistic rows: add & reconcile ------------------- */
+  const [optimisticRows, setOptimisticRows] = useState<Map<string, OptimisticRow>>(new Map());
+
+  // purge expired optimistic rows
+  useEffect(() => {
+    const t = setInterval(() => {
+      setOptimisticRows((m) => {
+        const now = Date.now();
+        const next = new Map(m);
+        for (const [key, val] of next) {
+          if (now - val.__createdAt > OPTIMISTIC_TTL_MS) next.delete(key);
+        }
+        return next;
+      });
+    }, 10_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Consume optimistic stake events coming from StakingModal (or anywhere)
+  useEffect(() => {
+    function onOptimisticStake(ev: Event) {
+      const detail = (ev as CustomEvent).detail as Partial<{
+        user: Address;
+        stakeIndex?: string;
+        packageId?: number;
+        packageName?: string;
+        amountLabel?: string;   // human string for the “Amount” column
+        startTs?: number;       // unix seconds
+        txHash?: Hex;
+      }> | undefined;
+
+      if (!detail || !address) return;
+      if (detail.user && detail.user.toLowerCase() !== address.toLowerCase()) return;
+
+      const key = makeId(address, detail.stakeIndex, detail.txHash);
+      const row: OptimisticRow = {
+        __optimistic: true,
+        __createdAt: Date.now(),
+        __tempId: detail.stakeIndex ? undefined : detail.txHash || undefined,
+        id: key,
+        packageName: detail.packageName ?? `Package #${detail.packageId ?? "—"}`,
+        amount: detail.amountLabel ?? "Pending…",
+        startDate: detail.startTs ? new Date(detail.startTs * 1000) : new Date(),
+        nextClaimWindow: undefined,
+        status: "Active",
+        stakeIndex: detail.stakeIndex ?? (detail.txHash || "0"),
+        packageId: detail.packageId ?? 0,
+        aprPct: undefined,
+        isFullyUnstaked: false,
+        totalStakedWei: undefined,
+        claimedAprWei: undefined,
+        aprBps: undefined,
+        startTs: detail.startTs,
+        nextClaimAt: undefined,
+        principalWithdrawnWei: undefined,
+        pkgRules: undefined,
+      };
+
+      setOptimisticRows((m) => {
+        const next = new Map(m);
+        next.set(key, row);
+        return next;
+      });
+
+      // Ask data layer to refresh; subgraph will fill the real row shortly
+      debouncedRefresh();
+    }
+
+    window.addEventListener("stake:optimistic", onOptimisticStake as EventListener);
+    return () => window.removeEventListener("stake:optimistic", onOptimisticStake as EventListener);
+  }, [address, debouncedRefresh]);
+
+  // Reconcile: if a subgraph row with same (user:stakeIndex) shows up, drop the optimistic twin
+  const mergedRows: ActivePackageRow[] = useMemo(() => {
+    if (!rows?.length && optimisticRows.size === 0) return [];
+
+    const realByKey = new Set<string>();
+    (rows || []).forEach((r) => {
+      // Real row ids in your app are stable; we’ll also build a key on (address:stakeIndex)
+      const key = makeId(address, r.stakeIndex);
+      realByKey.add(key);
+    });
+
+    // keep only optimistic rows whose keys aren’t present in real data yet
+    const keptOptimistic: ActivePackageRow[] = [];
+    for (const [key, opt] of optimisticRows) {
+      if (!realByKey.has(key)) keptOptimistic.push(opt);
+    }
+
+    // Show optimistic at the top for visibility
+    return [...keptOptimistic, ...(rows || [])];
+  }, [rows, optimisticRows, address]);
+
+  // When merged rows include a real row with same key, clean up optimistic to avoid memory growth
+  useEffect(() => {
+    setOptimisticRows((m) => {
+      if (m.size === 0 || mergedRows.length === 0) return m;
+      const next = new Map(m);
+      const liveKeys = new Set(mergedRows.map((r) => makeId(address, r.stakeIndex)));
+      for (const key of next.keys()) {
+        if (liveKeys.has(key)) next.delete(key);
+      }
+      return next;
+    });
+  }, [mergedRows, address]);
 
   // Always refresh the table after row-level actions, regardless of parent callbacks.
   const columns = buildActivePackagesColumns({
@@ -125,7 +218,7 @@ export default function ActivePackages({
     },
   });
 
-  if (loading) return <LoadingActiveStakes />;
+  if (loading && mergedRows.length === 0) return <LoadingActiveStakes />;
   if (error) {
     return (
       <div className="rounded-2xl border border-dashed border-rose-500/30 p-6 text-rose-300">
@@ -133,7 +226,7 @@ export default function ActivePackages({
       </div>
     );
   }
-  if (!rows.length) {
+  if (!mergedRows.length) {
     if (renderWhenEmpty) {
       return (
         <div className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">
@@ -160,8 +253,14 @@ export default function ActivePackages({
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-white/90">
-              {rows.map((row) => (
-                <tr key={row.id} className="hover:bg-white/[0.03] transition-colors">
+              {mergedRows.map((row) => (
+                <tr
+                  key={row.id}
+                  className={
+                    "transition-colors " +
+                    (row as any).__optimistic ? " bg-white/[0.02]" : " hover:bg-white/[0.03]"
+                  }
+                >
                   {columns.map((c) => (
                     <td key={c.key} className="px-5 py-4 align-middle">
                       {c.render(row)}
@@ -177,9 +276,9 @@ export default function ActivePackages({
       {/* Mobile cards */}
       <div className="md:hidden -mx-4 px-4 mt-4">
         <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 no-scrollbar">
-          {rows.map((row) => (
+          {mergedRows.map((row) => (
             <div key={row.id} className="snap-center shrink-0 w-[88%]">
-              <div className="rounded-2xl p-4 bg-white/10 border border-white/20">
+              <div className={"rounded-2xl p-4 border " + ((row as any).__optimistic ? "bg-white/5 border-white/15" : "bg-white/10 border-white/20")}>
                 <div className="text-white font-semibold">{row.packageName}</div>
                 <div className="text-white/80 text-sm mt-1">Amount: {row.amount}</div>
                 <div className="text-white/60 text-xs mt-1">
