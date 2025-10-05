@@ -7,6 +7,7 @@ import {
 } from "@/web3/__generated__/wagmi";
 import { usePublicClient } from "wagmi";
 import { explainTxError, normalizeEvmError, showEvmError, showUserSuccess } from "@/lib/errors";
+import { bsc } from "viem/chains";
 
 /* ---- Icons ---- */
 const IconYY: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
@@ -112,13 +113,14 @@ export function buildActivePackagesColumns({
   ];
 }
 
-/* ---------------- Row Actions (no subgraph calls) ---------------- */
+/* ---------------- Row Actions (chain-bound to BSC) ---------------- */
 const RowActions: React.FC<{
   row: ActivePackageRow;
   onClaim?: () => Promise<void> | void;
   onUnstake?: () => Promise<void> | void;
 }> = ({ row, onClaim, onUnstake }) => {
-  const publicClient = usePublicClient();
+  // Bind reads/receipt waits to BSC
+  const publicClient = usePublicClient({ chainId: bsc.id });
   const { writeContractAsync: claimAprAsync, isPending: claimPending } = useWriteYearnTogetherClaimApr();
   const { writeContractAsync: unstakeAsync,   isPending: unstakePending } = useWriteYearnTogetherUnstake();
 
@@ -225,7 +227,8 @@ const RowActions: React.FC<{
     }
     try {
       const args = [BigInt(row.stakeIndex)];
-      const hash = await claimAprAsync({ address: PROXY, args });
+      // 🔗 ensure writes are on BSC
+      const hash = await claimAprAsync({ address: PROXY, args, chainId: bsc.id });
       setConfirming("claim");
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       setConfirming(null);
@@ -265,7 +268,8 @@ const RowActions: React.FC<{
     }
     try {
       const args = [BigInt(row.stakeIndex)];
-      const hash = await unstakeAsync({ address: PROXY, args });
+      // 🔗 ensure writes are on BSC
+      const hash = await unstakeAsync({ address: PROXY, args, chainId: bsc.id });
       setConfirming("unstake");
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       setConfirming(null);

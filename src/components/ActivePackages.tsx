@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { useAccount } from "wagmi";
 import LoadingActiveStakes from "./LoadingActiveStakes";
 import { useActiveStakes } from "@/hooks/useActiveStakes";
@@ -47,15 +47,52 @@ export default function ActivePackages({
   renderWhenEmpty?: boolean;
 }) {
   const { address } = useAccount();
-  const { rows, loading, error, refresh } = useActiveStakes({ address, ttlMs: 60_000 });
+
+  // Short TTL because we now actively refresh on chain events, but this keeps the UI alive if an event was missed
+  const { rows, loading, error, refresh } = useActiveStakes({ address, ttlMs: 45_000 });
+
+  // Debounced refresh so multiple events within a block don't spam the subgraph
+  const refreshTimer = useRef<number | null>(null);
+  const debouncedRefresh = useMemo(
+    () => () => {
+      if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
+      // small delay to let the indexer catch up on BSC
+      refreshTimer.current = window.setTimeout(() => {
+        refresh();
+        refreshTimer.current = null;
+      }, 900);
+    },
+    [refresh]
+  );
+
+  // Listen to app-wide events that indicate on-chain changes
+  useEffect(() => {
+    const bump = () => debouncedRefresh();
+    const events = [
+      "staking:updated",
+      "active-packages:refresh",
+      "stakes:changed",
+      "apr:claimed",
+      "unstaked",
+    ];
+    events.forEach((e) => window.addEventListener(e, bump as EventListener));
+    // also refresh when account changes (handled by parent hook usually, but safe)
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, bump as EventListener));
+      if (refreshTimer.current) {
+        window.clearTimeout(refreshTimer.current);
+        refreshTimer.current = null;
+      }
+    };
+  }, [debouncedRefresh]);
 
   // Always refresh the table after row-level actions, regardless of parent callbacks.
   const columns = buildActivePackagesColumns({
     onClaim: async () => {
-      try { await onClaim?.(); } finally { await refresh(); }
+      try { await onClaim?.(); } finally { debouncedRefresh(); }
     },
     onUnstake: async () => {
-      try { await onUnstake?.(); } finally { await refresh(); }
+      try { await onUnstake?.(); } finally { debouncedRefresh(); }
     },
   });
 
