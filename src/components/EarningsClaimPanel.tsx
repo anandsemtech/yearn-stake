@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Award, Clock, Star, TrendingUp, Zap, RefreshCcw } from "lucide-react";
 import { Address, formatUnits } from "viem";
-import { baseSepolia } from "viem/chains";
+import { bsc } from "viem/chains";
 import {
   useAccount,
   useChainId,
@@ -79,9 +79,9 @@ const EarningsClaimPanel: React.FC = () => {
 
   const { address } = useAccount();
   const chainId = useChainId();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: bsc.id }); // 🔒 pin reads/sims to BSC
 
-  const REQUIRED_CHAIN = baseSepolia.id; // 84532
+  const REQUIRED_CHAIN = bsc.id; // 56 (BSC Mainnet)
   const isConnected = Boolean(address);
   const onCorrectChain = chainId === REQUIRED_CHAIN;
 
