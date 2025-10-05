@@ -1,15 +1,30 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import type { ActivePackageRow } from "./ActivePackages";
 import ResponsiveDisabledHint from "./ResponsiveDisabledHint";
+
 import {
   useWriteYearnTogetherClaimApr,
   useWriteYearnTogetherUnstake,
 } from "@/web3/__generated__/wagmi";
-import { usePublicClient } from "wagmi";
-import { explainTxError, normalizeEvmError, showEvmError, showUserSuccess } from "@/lib/errors";
-import { bsc } from "viem/chains";
 
-/* ---- Icons ---- */
+import { usePublicClient, useAccount } from "wagmi";
+import { bsc } from "viem/chains";
+import { STAKING_ABI } from "@/web3/abi/stakingAbi";
+import { Address } from "viem";
+
+import {
+  explainTxError,
+  normalizeEvmError,
+  showEvmError,
+  showUserSuccess,
+} from "@/lib/errors";
+
+/* ------------------------- ENV / ADDRESS ------------------------- */
+const PROXY =
+  (import.meta.env.VITE_BASE_CONTRACT_ADDRESS as `0x${string}`) ||
+  ("0x0000000000000000000000000000000000000000" as const);
+
+/* ------------------------------ ICONS ---------------------------- */
 const IconYY: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className={className}>
     <circle cx="16" cy="16" r="15" fill="#FFFFFF" />
@@ -21,21 +36,76 @@ const IconYY: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => 
   </svg>
 );
 const IconTrendUp = () => (<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M16 6h5v5h-2V9.41l-5.29 5.3l-4-4L3 17.41L1.59 16L9.7 7.9l4 4L17.59 8H16z"/></svg>);
-const IconClock = () => (<svg width="16" height="16" viewBox="0 0 24 24" className="opacity-80"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m.75 5h-1.5v6l5.25 3.15l.75-1.23l-4.5-2.67Z"/></svg>);
+const IconLock = () => (<svg width="16" height="16" viewBox="0 0 24 24" className="opacity-90"><path fill="currentColor" d="M12 1a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V6a3 3 0 0 0-3 3v3h6V6a3 3 0 0 0-3-3Z"/></svg>);
 const IconBolt = () => (<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>);
-const IconLock = () => (<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V6a3 3 0 0 0-3 3v3h6V6a3 3 0 0 0-3-3Z"/></svg>);
 
-const PROXY =
-  (import.meta.env.VITE_BASE_CONTRACT_ADDRESS as `0x${string}`) ||
-  ("0x0000000000000000000000000000000000000000" as const);
-
-/* ---- helpers ---- */
+/* ---------------------- TIME / FORMATTING HELPERS --------------------- */
 const fmtDateTime = (d?: Date) =>
   d ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(d) : "—";
 const fmtDateTimeSeconds = (d?: Date) =>
   d ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "medium", timeZone: "Asia/Kolkata" }).format(d) : "—";
 
-/* ---------------- Columns builder ---------------- */
+/* ====================================================================== */
+/*                     OPTIMISTIC CACHE (per stake row)                   */
+/* ====================================================================== */
+/**
+ * We keep a transient, in-memory cache describing post-tx state so the UI
+ * disables buttons right away and shows the next available time without waiting
+ * for the subgraph. Items auto-expire so we never get stuck.
+ */
+type Key = string; // `${user}:${stakeIndex}` lowercased
+type Optimistic = {
+  // applied on Claim success
+  nextClaimAt?: number;                    // unix seconds
+  claimedAprWeiDelta?: bigint;             // optional bump
+  // applied on Unstake success
+  fullyUnstaked?: boolean;
+  principalWithdrawnWeiDelta?: bigint;     // optional bump
+  // bookkeeping
+  lastTouched: number;                     // ms
+};
+
+const RAM: Map<Key, Optimistic> = new Map();
+const TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function k(user?: Address | null, stakeIndex?: string) {
+  if (!user || !stakeIndex) return "";
+  return `${String(user).toLowerCase()}:${String(stakeIndex)}`;
+}
+function getOpt(user?: Address | null, stakeIndex?: string): Optimistic | undefined {
+  const key = k(user, stakeIndex);
+  if (!key) return undefined;
+  const v = RAM.get(key);
+  if (!v) return undefined;
+  if (Date.now() - v.lastTouched > TTL_MS) {
+    RAM.delete(key);
+    return undefined;
+  }
+  return v;
+}
+function mergeOpt(user: Address, stakeIndex: string, patch: Partial<Optimistic>) {
+  const key = k(user, stakeIndex);
+  if (!key) return;
+  const prev = getOpt(user, stakeIndex) || { lastTouched: Date.now() };
+  const next: Optimistic = {
+    ...prev,
+    ...patch,
+    lastTouched: Date.now(),
+  };
+  RAM.set(key, next);
+  // let the table know something changed
+  window.dispatchEvent(new Event("active-packages:refresh"));
+}
+function clearOpt(user: Address, stakeIndex: string) {
+  const key = k(user, stakeIndex);
+  if (!key) return;
+  RAM.delete(key);
+}
+
+/* ====================================================================== */
+/*                           COLUMNS (with actions)                       */
+/* ====================================================================== */
+
 export function buildActivePackagesColumns({
   onClaim,
   onUnstake,
@@ -113,13 +183,14 @@ export function buildActivePackagesColumns({
   ];
 }
 
-/* ---------------- Row Actions (chain-bound to BSC) ---------------- */
+/* --------------------------- Row Actions --------------------------- */
+
 const RowActions: React.FC<{
   row: ActivePackageRow;
   onClaim?: () => Promise<void> | void;
   onUnstake?: () => Promise<void> | void;
 }> = ({ row, onClaim, onUnstake }) => {
-  // Bind reads/receipt waits to BSC
+  const { address: user } = useAccount();
   const publicClient = usePublicClient({ chainId: bsc.id });
   const { writeContractAsync: claimAprAsync, isPending: claimPending } = useWriteYearnTogetherClaimApr();
   const { writeContractAsync: unstakeAsync,   isPending: unstakePending } = useWriteYearnTogetherUnstake();
@@ -127,6 +198,10 @@ const RowActions: React.FC<{
   const [localErr, setLocalErr] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<"claim" | "unstake" | null>(null);
 
+  // Read optimistic override
+  const opt = getOpt(user as Address, row.stakeIndex);
+
+  /* ----- derive computed fields (merge optimistic if present) ----- */
   const pkg = row.pkgRules;
   const nowSec = Math.floor(Date.now() / 1000);
   const startSec =
@@ -135,27 +210,34 @@ const RowActions: React.FC<{
       : (row.startDate ? Math.floor(row.startDate.getTime() / 1000) : 0);
 
   const fullyUnstaked =
+    opt?.fullyUnstaked === true ||
     Boolean(row.isFullyUnstaked) ||
     (row.principalWithdrawnWei != null && row.totalStakedWei != null && row.principalWithdrawnWei >= row.totalStakedWei);
 
+  const claimedAprWei =
+    (row.claimedAprWei ?? 0n) + (opt?.claimedAprWeiDelta ?? 0n);
+
   const amountFullyClaimed = (() => {
-    if (!row.totalStakedWei || !row.claimedAprWei) return false;
+    if (!row.totalStakedWei) return false;
     const aprBps = row.aprBps ?? pkg?.aprBps ?? 0;
     if (aprBps <= 0) return false;
     const cap = (row.totalStakedWei * BigInt(aprBps)) / 10000n;
-    return row.claimedAprWei >= cap;
+    return claimedAprWei >= cap;
   })();
 
   const nextClaimSec =
-    typeof row.nextClaimAt === "number" ? row.nextClaimAt
-    : row.nextClaimWindow instanceof Date ? Math.floor(row.nextClaimWindow.getTime() / 1000)
-    : (pkg?.monthlyAPRClaimable && pkg?.claimableIntervalSec && startSec > 0)
-      ? startSec + pkg.claimableIntervalSec
-      : 0;
+    typeof opt?.nextClaimAt === "number" && opt?.nextClaimAt > 0
+      ? opt.nextClaimAt
+      : typeof row.nextClaimAt === "number" ? row.nextClaimAt
+      : row.nextClaimWindow instanceof Date ? Math.floor(row.nextClaimWindow.getTime() / 1000)
+      : (pkg?.monthlyAPRClaimable && pkg?.claimableIntervalSec && startSec > 0)
+        ? startSec + pkg.claimableIntervalSec
+        : 0;
 
   const canClaim = useMemo(() => {
     if (!pkg || !pkg.isActive) return false;
     if (amountFullyClaimed) return false;
+    if (fullyUnstaked) return false;
     if (pkg.monthlyAPRClaimable) {
       if (!pkg.claimableIntervalSec) return false;
       return nowSec >= nextClaimSec;
@@ -164,7 +246,7 @@ const RowActions: React.FC<{
       const maturity = startSec + pkg.durationInDays * 86400;
       return nowSec >= maturity;
     }
-  }, [pkg, amountFullyClaimed, nowSec, nextClaimSec, startSec]);
+  }, [pkg, amountFullyClaimed, fullyUnstaked, nowSec, nextClaimSec, startSec]);
 
   const canUnstake = useMemo(() => {
     if (!pkg || !pkg.isActive) return false;
@@ -184,6 +266,7 @@ const RowActions: React.FC<{
   const claimDisabledReason = useMemo(() => {
     if (!pkg) return "Loading package rules…";
     if (!pkg.isActive) return "Package is inactive";
+    if (fullyUnstaked) return "Stake fully unstaked";
     if (amountFullyClaimed) return "APR fully claimed";
     if (pkg.monthlyAPRClaimable) {
       if (!pkg.claimableIntervalSec) return "Claim interval not configured";
@@ -195,7 +278,7 @@ const RowActions: React.FC<{
       if (nowSec < maturity) return `Claim at maturity: ${fmtDateTimeSeconds(new Date(maturity * 1000))}`;
       return "";
     }
-  }, [pkg, amountFullyClaimed, nowSec, nextClaimSec, startSec]);
+  }, [pkg, amountFullyClaimed, fullyUnstaked, nowSec, nextClaimSec, startSec]);
 
   const unstakeDisabledReason = useMemo(() => {
     if (!pkg) return "Loading package rules…";
@@ -218,6 +301,8 @@ const RowActions: React.FC<{
   const claimLabel = confirming === "claim" ? "Confirming…" : claimPending ? "Processing…" : "Claim";
   const unstakeLabel = confirming === "unstake" ? "Confirming…" : unstakePending ? "Processing…" : "Unstake";
 
+  /* ---------------------- handlers with optimistic ---------------------- */
+
   async function handleClaim() {
     setLocalErr(null);
     if (!canClaim) {
@@ -227,10 +312,10 @@ const RowActions: React.FC<{
     }
     try {
       const args = [BigInt(row.stakeIndex)];
-      // 🔗 ensure writes are on BSC
       const hash = await claimAprAsync({ address: PROXY, args, chainId: bsc.id });
       setConfirming("claim");
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      const receipt = await publicClient!.waitForTransactionReceipt({ hash });
       setConfirming(null);
 
       if (receipt.status !== "success") {
@@ -243,12 +328,24 @@ const RowActions: React.FC<{
         return;
       }
 
-      // 🔔 refresh listeners + success toast
+      // OPTIMISTIC: compute next claim instantly
+      const block = await publicClient!.getBlock({ blockHash: receipt.blockHash! });
+      const minedSec = Number(block.timestamp);
+      const interval = row.pkgRules?.claimableIntervalSec ?? 0;
+      const next = interval > 0 ? minedSec + interval : minedSec;
+
+      mergeOpt(user as Address, row.stakeIndex, {
+        nextClaimAt: next,
+        // (optional) bump claimed APR locally to guard cap checks
+        // claimedAprWeiDelta: 0n  // keep zero unless you track exact payout
+      });
+
+      // 🔔 refresh + toast
       window.dispatchEvent(new Event("staking:updated"));
       window.dispatchEvent(new Event("active-packages:refresh"));
       window.dispatchEvent(new Event("stakes:changed"));
       window.dispatchEvent(new Event("apr:claimed"));
-      showUserSuccess("Claim submitted", "We’ll update your earnings shortly.");
+      showUserSuccess("Claim confirmed", `Next claim ~ ${fmtDateTimeSeconds(new Date(next * 1000))}`);
 
       if (onClaim) await onClaim();
     } catch (e: any) {
@@ -268,10 +365,10 @@ const RowActions: React.FC<{
     }
     try {
       const args = [BigInt(row.stakeIndex)];
-      // 🔗 ensure writes are on BSC
       const hash = await unstakeAsync({ address: PROXY, args, chainId: bsc.id });
       setConfirming("unstake");
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      const receipt = await publicClient!.waitForTransactionReceipt({ hash });
       setConfirming(null);
 
       if (receipt.status !== "success") {
@@ -284,12 +381,17 @@ const RowActions: React.FC<{
         return;
       }
 
-      // 🔔 refresh listeners + success toast
+      // OPTIMISTIC: mark row as fully unstaked (prevents re-click)
+      mergeOpt(user as Address, row.stakeIndex, {
+        fullyUnstaked: true,
+      });
+
+      // 🔔 refresh + toast
       window.dispatchEvent(new Event("staking:updated"));
       window.dispatchEvent(new Event("active-packages:refresh"));
       window.dispatchEvent(new Event("stakes:changed"));
       window.dispatchEvent(new Event("unstaked"));
-      showUserSuccess("Unstake submitted", "We’ll refresh your positions shortly.");
+      showUserSuccess("Unstake confirmed", "Your principal update will appear shortly.");
 
       if (onUnstake) await onUnstake();
     } catch (e: any) {
@@ -303,16 +405,20 @@ const RowActions: React.FC<{
   const claimIsDisabled = claimPending || confirming !== null || !canClaim;
   const unstakeIsDisabled = unstakePending || confirming !== null || !canUnstake;
 
+  // If optimistic says fullyUnstaked or nextClaimAt in future, add extra hard lock
+  const hardDisableClaim = opt?.fullyUnstaked === true || (opt?.nextClaimAt && nowSec < opt.nextClaimAt);
+  const claimDisabled = claimIsDisabled || hardDisableClaim;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-3">
-        <ResponsiveDisabledHint disabled={claimIsDisabled} reason={claimIsDisabled ? claimDisabledReason : undefined} className="inline-block">
+        <ResponsiveDisabledHint disabled={claimDisabled} reason={claimDisabled ? claimDisabledReason : undefined} className="inline-block">
           <button
-            disabled={claimIsDisabled}
+            disabled={claimDisabled}
             onClick={handleClaim}
             className={"inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium " +
                        "bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-60 disabled:cursor-not-allowed " +
-                       (claimIsDisabled ? "pointer-events-none" : "")}>
+                       (claimDisabled ? "pointer-events-none" : "")}>
             <span className="opacity-90"><IconBolt /></span>
             {unstakePending && confirming !== "claim" ? "Processing…" : claimLabel}
           </button>

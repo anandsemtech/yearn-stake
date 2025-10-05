@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
+import { bsc } from "viem/chains";
 import LoadingActiveStakes from "./LoadingActiveStakes";
 import { useActiveStakes } from "@/hooks/useActiveStakes";
 import { buildActivePackagesColumns } from "./ActivePackagesColumns";
+import { STAKING_ABI } from "@/web3/abi/stakingAbi";
 
 /* Public row shape consumed by columns/actions */
 export interface ActivePackageRow {
@@ -37,6 +39,10 @@ export interface ActivePackageRow {
   };
 }
 
+const PROXY =
+  (import.meta.env.VITE_BASE_CONTRACT_ADDRESS as `0x${string}`) ||
+  ("0x0000000000000000000000000000000000000000" as const);
+
 export default function ActivePackages({
   onClaim,
   onUnstake,
@@ -56,7 +62,7 @@ export default function ActivePackages({
   const debouncedRefresh = useMemo(
     () => () => {
       if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
-      // small delay to let the indexer catch up on BSC
+      // small delay to let the indexer catch up on BSC (still optimistic state used to disable buttons)
       refreshTimer.current = window.setTimeout(() => {
         refresh();
         refreshTimer.current = null;
@@ -76,7 +82,6 @@ export default function ActivePackages({
       "unstaked",
     ];
     events.forEach((e) => window.addEventListener(e, bump as EventListener));
-    // also refresh when account changes (handled by parent hook usually, but safe)
     return () => {
       events.forEach((e) => window.removeEventListener(e, bump as EventListener));
       if (refreshTimer.current) {
@@ -85,6 +90,30 @@ export default function ActivePackages({
       }
     };
   }, [debouncedRefresh]);
+
+  /* -------------------- On-chain log watcher (BSC) -------------------- */
+  const publicClient = usePublicClient({ chainId: bsc.id });
+  useEffect(() => {
+    if (!publicClient) return;
+
+    // Watch contract logs to refresh quickly after confirmations.
+    // We don't rely on ABI event names; any relevant log from the staking proxy will trigger.
+    const unwatch = publicClient.watchContractEvent({
+      address: PROXY,
+      abi: STAKING_ABI as any,
+      // if you know event names: events: ["Staked", "Claimed", "Unstaked"] as any
+      onLogs: () => {
+        // Immediately ask table to refresh (debounced)
+        debouncedRefresh();
+      },
+      onError: () => {
+        // ignore; the UI can still refresh via window events
+      },
+      poll: true,
+    });
+
+    return () => { try { unwatch?.(); } catch {} };
+  }, [publicClient, debouncedRefresh]);
 
   // Always refresh the table after row-level actions, regardless of parent callbacks.
   const columns = buildActivePackagesColumns({
