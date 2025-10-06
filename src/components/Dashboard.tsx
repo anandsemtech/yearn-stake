@@ -283,7 +283,7 @@ const Dashboard: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8
                     bg-[radial-gradient(1100px_600px_at_50%_-200px,rgba(125,106,255,0.12),transparent)]
                     bg-[length:100%_auto]">
-      {/* Honorary NFT popup — ONLY when holder */}
+      {/* Honorary NFT popup — ONLY when holder 
       {show && badges.some(b => b.owned) && (
         <HonoraryNftPopup
           items={badges.filter(b => b.owned).map(b => ({
@@ -298,7 +298,7 @@ const Dashboard: React.FC = () => {
       )}
       {honError && <div className="text-red-400 text-xs">Honorary NFT: {honError}</div>}
       {honLoading && <div className="text-xs opacity-70">Checking honorary status…</div>}
-
+      */}
       {/* Toast */}
       <Toast show={toastOpen} title={toastTitle} message={toastMsg} onClose={() => setToastOpen(false)} />
 
