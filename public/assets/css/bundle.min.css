@@ -1,0 +1,2 @@
+// app/layout.tsx or pages/_document.tsx (Head)
+<link rel="stylesheet" href="/assets/css/bundle.min.css" />
