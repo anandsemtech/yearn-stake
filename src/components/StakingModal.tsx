@@ -516,7 +516,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         functionName: "packages",
         args: [pid],
       })) as any;
-      const out: PkgInfo = {};
+    const out: PkgInfo = {};
       if (res && typeof res === "object") {
         if ("isActive" in res) out.isActive = Boolean(res.isActive);
         if ("minStakeAmount" in res) out.minStakeAmount = BigInt(res.minStakeAmount);
@@ -1045,58 +1045,61 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
             <div className="flex flex-col gap-2">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Minimum: {prettyUSD(pkg.minAmount)}
-                {pkg.stakeMultiple ? ` • Multiples of ${prettyUSD(pkg.stakeMultiple)}` : ""}
+                {multiple > 0 ? ` • Multiples of ${prettyUSD(multiple)}` : " • Multiples not enforced"}
               </p>
 
-              {pkg.stakeMultiple ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  {!isMultipleOk && (
-                    <button
-                      type="button"
-                      onClick={nudgeToNextValid}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                                 bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200 hover:opacity-90"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Fix +{toNextMultipleDelta}
-                    </button>
-                  )}
+              {/* Always render the row; disable buttons when multiple <= 0 */}
+              <div className="flex flex-wrap items-center gap-2">
+                {!isMultipleOk && multiple > 0 && (
+                  <button
+                    type="button"
+                    onClick={nudgeToNextValid}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                               bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200 hover:opacity-90"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Fix +{toNextMultipleDelta}
+                  </button>
+                )}
 
-                  <button
-                    type="button"
-                    onClick={() => bumpByMultiples(1)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                               bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200 hover:opacity-90"
-                  >
-                    <Plus className="w-3 h-3" />
-                    +1×
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => bumpByMultiples(5)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                               bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200 hover:opacity-90"
-                  >
-                    <Plus className="w-3 h-3" />
-                    +5×
-                  </button>
-                  <button
-                    type="button"
-                    onClick={nudgeToMin}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                               bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-200 hover:opacity-90"
-                  >
-                    Set to Min
-                  </button>
-                </div>
-              ) : null}
+                <button
+                  type="button"
+                  onClick={() => bumpByMultiples(1)}
+                  disabled={!(multiple > 0)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                             bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200
+                             disabled:opacity-50 hover:opacity-90"
+                >
+                  <Plus className="w-3 h-3" />
+                  +1×
+                </button>
+                <button
+                  type="button"
+                  onClick={() => bumpByMultiples(5)}
+                  disabled={!(multiple > 0)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                             bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200
+                             disabled:opacity-50 hover:opacity-90"
+                >
+                  <Plus className="w-3 h-3" />
+                  +5×
+                </button>
+                <button
+                  type="button"
+                  onClick={nudgeToMin}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                             bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-200 hover:opacity-90"
+                >
+                  Set to Min
+                </button>
+              </div>
 
               {!meetsMin && (
                 <p className="text-xs text-rose-600 dark:text-rose-400">
                   Amount must be at least {prettyUSD(pkg.minAmount)}.
                 </p>
               )}
-              {(!isMultipleOk && multiple) && (
+              {(!isMultipleOk && multiple > 0) && (
                 <p className="text-xs text-rose-600 dark:text-rose-400">
                   Amount must be a multiple of {prettyUSD(multiple)}. Tap “Fix +{toNextMultipleDelta}”.
                 </p>
