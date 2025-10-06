@@ -1,5 +1,5 @@
 // src/components/StakingModal.tsx
-import { X, DollarSign, Calendar, TrendingUp, Zap } from "lucide-react";
+import { X, DollarSign, Calendar, TrendingUp, Zap, Plus } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Address, Hex } from "viem";
 import { parseUnits } from "viem";
@@ -227,11 +227,6 @@ const prettyFixed = (v: bigint, decimals: number, places = 2) => {
 };
 const prettyUSD = (n: number) =>
   n.toLocaleString(undefined, { maximumFractionDigits: 6 });
-const clampToMultiple = (amount: number, multiple?: number) => {
-  if (!multiple || multiple <= 0) return amount;
-  const k = Math.floor(amount / multiple);
-  return k * multiple;
-};
 
 /* ===========================
    Component
@@ -360,19 +355,60 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     validCompositions.length > 0 ? validCompositions[selectedIdx] : [100, 0, 0];
 
   /* ===========================
-     Amount & splits
+     Amount & stake-multiple UX
   =========================== */
-  const [amount, setAmount] = useState(
-    String(clampToMultiple(pkg.minAmount, pkg.stakeMultiple))
-  );
+  const initialAmount = useMemo(() => {
+    // Start at least-min and aligned to multiple if provided (for a pleasant default)
+    const m = pkg.stakeMultiple || 0;
+    if (!m) return String(Math.max(pkg.minAmount, 0));
+    const k = Math.ceil(Math.max(pkg.minAmount, 0) / m);
+    return String(k * m);
+  }, [pkg.minAmount, pkg.stakeMultiple]);
 
+  const [amount, setAmount] = useState(initialAmount);
+
+  // raw number from input; no silent clamping
   const amountNum = useMemo(() => {
     const n = Number(amount || 0);
-    if (!isFinite(n) || n < 0) return 0;
-    const clamped = clampToMultiple(n, pkg.stakeMultiple);
-    return Math.max(clamped, pkg.minAmount);
-  }, [amount, pkg.stakeMultiple, pkg.minAmount]);
+    return !isFinite(n) || n < 0 ? 0 : n;
+  }, [amount]);
 
+  const meetsMin = amountNum >= pkg.minAmount;
+  const multiple = pkg.stakeMultiple ?? 0;
+  const isMultipleOk = multiple ? amountNum % multiple === 0 : true;
+
+  const toNextMultipleDelta = useMemo(() => {
+    if (!multiple) return 0;
+    if (amountNum <= 0) return multiple;
+    const next = Math.ceil(amountNum / multiple) * multiple;
+    const delta = next - amountNum;
+    return delta === 0 ? multiple : delta;
+  }, [amountNum, multiple]);
+
+  const bumpByMultiples = (count: number) => {
+    if (!multiple || count <= 0) return;
+    const base = Math.max(0, amountNum);
+    const next = base + multiple * count;
+    setAmount(String(next));
+  };
+
+  const nudgeToNextValid = () => {
+    if (!multiple) return;
+    setAmount(String(amountNum + toNextMultipleDelta));
+  };
+
+  const nudgeToMin = () => {
+    if (!multiple) {
+      setAmount(String(Math.max(pkg.minAmount, 0)));
+      return;
+    }
+    const k = Math.ceil(Math.max(pkg.minAmount, 0) / multiple);
+    setAmount(String(k * multiple));
+  };
+
+  /* ===========================
+     Splits per token
+  =========================== */
   const humanPerToken = useMemo<[number, number, number]>(() => {
     const [py, ps, pp] = selected;
     if (py + ps + pp !== 100) return [0, 0, 0];
@@ -541,7 +577,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
 
     if (!address) return "Connect wallet.";
 
-    // Use wallet's eth_chainId (authoritative)
+    // Authoritative chain check
     try {
       if (walletClient) {
         const hex = (await walletClient.request({ method: "eth_chainId" })) as string;
@@ -556,13 +592,20 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     if (sumPct !== 100) return "Composition must sum to 100%.";
     if (amtsAll[0] + amtsAll[1] + amtsAll[2] === 0n) return "Total amount is zero.";
 
+    // Client-side early validation for stakeMultiple and min (UX hint; on-chain still enforced)
+    if (!meetsMin) return `Amount must be at least ${pkg.minAmount}.`;
+    if (!isMultipleOk && multiple) {
+      const delta = toNextMultipleDelta;
+      return `Amount must be a multiple of ${multiple}. Add +${delta} to fix.`;
+    }
+
     const paused = await isPaused();
     if (paused === true) return "Contract is paused.";
 
     const onchainPkg = await readPackageInfo(BigInt(pkg.id));
     if (onchainPkg?.isActive === false) return "Package is inactive on-chain.";
 
-    // Enforce on-chain min/multiple against TOTAL (adjust if contract expects per-token)
+    // Enforce on-chain min/multiple against TOTAL (unchanged behavior)
     if (onchainPkg?.minStakeAmount) {
       const totalWei = (amtsAll[0] ?? 0n) + (amtsAll[1] ?? 0n) + (amtsAll[2] ?? 0n);
       if (totalWei < onchainPkg.minStakeAmount) {
@@ -762,7 +805,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
           return;
         }
 
-        /* ✅ Injected optimistic Stake row emitter (before showUserSuccess) */
+        /* ✅ Optimistic Stake row emitter */
         try {
           let stakeIndexStr: string | undefined;
           let pkgIdNum: number | undefined;
@@ -826,7 +869,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         stakeWaitRef.current = null;
       }
     })();
-  }, [publicClient, onClose, stakeTxHash, stakeConfirmed]);
+  }, [publicClient, onClose, stakeTxHash, stakeConfirmed, amountNum, pkg.id, pkg.name, address]);
 
   /* ===========================
      Handler: Approve & Stake (single CTA)
@@ -834,6 +877,12 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
   async function handleApproveAndStake() {
     setActionMsg(null);
     try {
+      // ⛔️ Early UI guard for stakeMultiple/min so we don't even start approvals
+      if (!meetsMin) throw new Error(`Amount must be at least ${pkg.minAmount}.`);
+      if (!isMultipleOk && multiple) {
+        throw new Error(`Amount must be a multiple of ${multiple}. Tip: tap “+${toNextMultipleDelta}” to fix.`);
+      }
+
       if (!walletClient || !address) throw new Error("Connect wallet.");
       await ensureBsc();
       const finalRef = resolveFinalReferrer();
@@ -909,9 +958,10 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     !!stakeTxHash ||
     !address ||
     amountNum < pkg.minAmount ||
+    !isMultipleOk || // 🔒 block CTA when not respecting stakeMultiple
     validCompositions.length === 0 ||
     !!chainIssue ||
-    amtsAll[0] + amtsAll[1] + amtsAll[2] === 0n ||
+    (amtsAll[0] + amtsAll[1] + amtsAll[2] === 0n) ||
     !hasSufficientBalances;
 
   const mainBtnText =
@@ -969,7 +1019,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
             </div>
           </div>
 
-          {/* Amount */}
+          {/* Amount + Multiples UX */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-800 dark:text-gray-200">
               Stake Amount
@@ -983,13 +1033,75 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
                 min={pkg.minAmount}
                 step={pkg.stakeMultiple ?? 1}
                 inputMode="decimal"
-                className="w-full pl-11 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:ring-2 focus:border-transparent
+                  ${!isMultipleOk || !meetsMin
+                    ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 focus:ring-rose-500"
+                    : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-white/10 focus:ring-violet-500"}`}
+                aria-invalid={!isMultipleOk || !meetsMin}
               />
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Minimum: {prettyUSD(pkg.minAmount)}
-              {pkg.stakeMultiple ? ` • Multiples of ${prettyUSD(pkg.stakeMultiple)}` : ""}
-            </p>
+
+            {/* Helper + Quick Add Multiples (mobile-first) */}
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Minimum: {prettyUSD(pkg.minAmount)}
+                {pkg.stakeMultiple ? ` • Multiples of ${prettyUSD(pkg.stakeMultiple)}` : ""}
+              </p>
+
+              {pkg.stakeMultiple ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {!isMultipleOk && (
+                    <button
+                      type="button"
+                      onClick={nudgeToNextValid}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                                 bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200 hover:opacity-90"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Fix +{toNextMultipleDelta}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => bumpByMultiples(1)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                               bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200 hover:opacity-90"
+                  >
+                    <Plus className="w-3 h-3" />
+                    +1×
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => bumpByMultiples(5)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                               bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200 hover:opacity-90"
+                  >
+                    <Plus className="w-3 h-3" />
+                    +5×
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nudgeToMin}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                               bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-200 hover:opacity-90"
+                  >
+                    Set to Min
+                  </button>
+                </div>
+              ) : null}
+
+              {!meetsMin && (
+                <p className="text-xs text-rose-600 dark:text-rose-400">
+                  Amount must be at least {prettyUSD(pkg.minAmount)}.
+                </p>
+              )}
+              {(!isMultipleOk && multiple) && (
+                <p className="text-xs text-rose-600 dark:text-rose-400">
+                  Amount must be a multiple of {prettyUSD(multiple)}. Tap “Fix +{toNextMultipleDelta}”.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Composition */}
@@ -1085,7 +1197,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
               Projected Annual Earnings
             </h3>
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {prettyUSD(amountNum * (pkg.apy / 100))}
+              {prettyUSD(projectedEarnings)}
             </div>
             <p className="text-xs text-gray-600 dark:text-gray-400">Based on {pkg.apy}% APY</p>
           </div>
@@ -1107,26 +1219,9 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleApproveAndStake}
-              disabled={
-                isApproving ||
-                isStaking ||
-                !!stakeTxHash ||
-                !address ||
-                amountNum < pkg.minAmount ||
-                validCompositions.length === 0 ||
-                !!chainIssue ||
-                (amtsAll[0] ?? 0n) + (amtsAll[1] ?? 0n) + (amtsAll[2] ?? 0n) === 0n ||
-                ((amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n) ||
-                 (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n) ||
-                 (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n))
-              }
+              disabled={mainDisabled}
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
-                (isApproving || isStaking || !!stakeTxHash || !address || amountNum < pkg.minAmount ||
-                 validCompositions.length === 0 || !!chainIssue ||
-                 (amtsAll[0] ?? 0n) + (amtsAll[1] ?? 0n) + (amtsAll[2] ?? 0n) === 0n ||
-                 ((amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n) ||
-                  (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n) ||
-                  (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n)))
+                mainDisabled
                   ? "bg-gradient-to-r from-violet-900/30 to-indigo-900/30 text-gray-400 cursor-not-allowed"
                   : "bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white shadow-sm"
               }`}
@@ -1137,15 +1232,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
                 <Zap className="w-4 h-4" />
               )}
               <span>
-                {isApproving
-                  ? "Approving…"
-                  : isStaking && !stakeTxHash
-                  ? "Sending stake…"
-                  : !!stakeTxHash
-                  ? "Confirming…"
-                  : stakeConfirmed
-                  ? "Staked"
-                  : "Approve & Stake"}
+                {mainBtnText}
               </span>
             </button>
           </div>
