@@ -2,7 +2,8 @@
 import { X, DollarSign, Calendar, TrendingUp, Zap, Plus } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Address, Hex } from "viem";
-import { parseUnits } from "viem";
+import { parseUnits, formatUnits } from "viem";
+
 import {
   useAccount,
   usePublicClient as useWagmiPublicClient,
@@ -232,41 +233,54 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
   /* ===========================
      Stake multiple via SUBGRAPH
   =========================== */
-  const [sgMultiple, setSgMultiple] = useState<number>(0);
+ // Stake multiple via SUBGRAPH (wei -> human)
+const [sgMultiple, setSgMultiple] = useState<number>(0);
 
-  useEffect(() => {
-    if (!SUBGRAPH_URL) {
-      setSgMultiple(0);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        // Your reference query shape, narrowed client-side
-        const query = `
-          query Pkgs {
-            packages(first: 50, orderBy: packageId, orderDirection: asc) {
-              packageId
-              stakeMultiple
-            }
+useEffect(() => {
+  if (!SUBGRAPH_URL) {
+    setSgMultiple(0);
+    return;
+  }
+  let cancelled = false;
+
+  (async () => {
+    try {
+      const query = `
+        query Pkgs {
+          packages(first: 50, orderBy: packageId, orderDirection: asc) {
+            packageId
+            stakeMultiple
           }
-        `;
-        const res = await fetch(SUBGRAPH_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query }),
-        });
-        const json = await res.json();
-        const rows: any[] = json?.data?.packages || [];
-        const row = rows.find((r) => String(r?.packageId) === String(pkg.id));
-        const m = Number(row?.stakeMultiple || 0);
-        if (!cancelled) setSgMultiple(Number.isFinite(m) && m > 0 ? m : 0);
-      } catch (e) {
-        if (!cancelled) setSgMultiple(0);
+        }
+      `;
+      const res = await fetch(SUBGRAPH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      const json = await res.json();
+      const rows: any[] = json?.data?.packages || [];
+      const row = rows.find((r) => String(r?.packageId) === String(pkg.id));
+
+      // stakeMultiple is a big-int string in wei (18 decimals).
+      // Convert to human units so the UI works with the same "amount" units as the input.
+      let mHuman = 0;
+      if (row?.stakeMultiple != null) {
+        const wei = BigInt(row.stakeMultiple);
+        const humanStr = formatUnits(wei, 18); // ← 18-decimals
+        const n = Number(humanStr);
+        mHuman = Number.isFinite(n) && n > 0 ? n : 0;
       }
-    })();
-    return () => { cancelled = true; };
-  }, [pkg.id]);
+
+      if (!cancelled) setSgMultiple(mHuman);
+    } catch {
+      if (!cancelled) setSgMultiple(0);
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, [pkg.id]);
+
 
   // Effective multiple preference: subgraph → prop → none
   const effectiveMultiple = useMemo(() => {
