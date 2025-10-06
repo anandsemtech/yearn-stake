@@ -35,7 +35,7 @@ const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
 const MAX_UINT256 = 2n ** 256n - 1n;
 
 /* ======= tuning ======= */
-const USE_MAX_ALLOWANCE_FOR_YY = false; // exact approvals for YY (your request)
+const USE_MAX_ALLOWANCE_FOR_YY = false; // exact approvals for YY
 const WAIT_CONFIRMATIONS = 1;
 const ALLOWANCE_POLL_ATTEMPTS = 6;
 const ALLOWANCE_POLL_DELAY_MS = 400;
@@ -50,7 +50,7 @@ interface StakingModalProps {
     apy: number;
     durationYears: number;
     minAmount: number;
-    stakeMultiple?: number;
+    stakeMultiple?: number; // may be missing in prod
   };
   onClose: () => void;
 }
@@ -68,150 +68,17 @@ const pYearn = (import.meta.env.VITE_PYEARN_TOKEN_ADDRESS ||
   import.meta.env.VITE_PYEARN_ADDRESS ||
   "") as Address;
 
-const stakingContract = (import.meta.env.VITE_BASE_CONTRACT_ADDRESS ??
-  "") as Address;
+const stakingContract = (import.meta.env.VITE_BASE_CONTRACT_ADDRESS ?? "") as Address;
 
-// ✅ Always use env default referrer (your requirement)
+// ✅ Always use env default referrer
 const DEFAULT_REFERRER = (import.meta.env.VITE_DEFAULT_REFERRER ||
   "0xD2Dd094539cfF0F279078181E43A47fC9764aC0D") as Address;
 
-// address equality (case-insensitive)
-const eqAddr = (a?: string, b?: string) =>
-  !!a && !!b && a.toLowerCase() === b.toLowerCase();
+// Subgraph (you said this is the correct env)
+const SUBGRAPH_URL: string | undefined = import.meta.env.VITE_SUBGRAPH_YEARN;
 
 /* ===========================
-   ERC20 ABIs
-=========================== */
-const ERC20_ABI = [
-  {
-    type: "function",
-    name: "allowance",
-    stateMutability: "view",
-    inputs: [
-      { name: "owner", type: "address" },
-      { name: "spender", type: "address" },
-    ],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "approve",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "spender", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "bool" }],
-  },
-] as const;
-
-const ERC20_VIEW_ABI = [
-  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
-  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
-  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
-  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "owner", type: "address" }], outputs: [{ type: "uint256" }] },
-] as const;
-
-/* ===========================
-   Minimal reads for staking
-=========================== */
-const STAKING_READS_ABI = [
-  {
-    type: "function",
-    name: "userTotalStaked",
-    stateMutability: "view",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "isWhitelisted",
-    stateMutability: "view",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [{ type: "bool" }],
-  },
-  {
-    type: "function",
-    name: "paused",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "bool" }],
-  },
-  {
-    type: "function",
-    name: "packages",
-    stateMutability: "view",
-    inputs: [{ name: "id", type: "uint256" }],
-    outputs: [
-      { name: "id", type: "uint16" },
-      { name: "durationInDays", type: "uint16" },
-      { name: "apr", type: "uint16" },
-      { name: "monthlyUnstake", type: "bool" },
-      { name: "isActive", type: "bool" },
-      { name: "minStakeAmount", type: "uint256" },
-      { name: "monthlyPrincipalReturnPercent", type: "uint16" },
-      { name: "monthlyAPRClaimable", type: "bool" },
-      { name: "claimableInterval", type: "uint256" },
-      { name: "stakeMultiple", type: "uint256" },
-      { name: "principalLocked", type: "bool" },
-    ],
-  },
-] as const;
-
-/* ---------------------------
-   Referrer validity ABI
----------------------------- */
-const REF_VALID_ABI = [
-  {
-    type: "function",
-    name: "isWhitelisted",
-    stateMutability: "view",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [{ type: "bool" }],
-  },
-  {
-    type: "function",
-    name: "userTotalStaked",
-    stateMutability: "view",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
-] as const;
-
-/* ===========================
-   Local safe error helpers
-=========================== */
-function safeShowEvmError(e: unknown, ctx: string) {
-  try {
-    showEvmError(e, { context: ctx });
-  } catch (inner) {
-    console.error("showEvmError failed:", inner);
-    const msg =
-      (e as any)?.shortMessage ||
-      (e as any)?.message ||
-      "Something went wrong";
-    window.dispatchEvent(
-      new CustomEvent("toast:error", {
-        detail: {
-          title: ctx,
-          description: String(msg),
-          severity: "error",
-        },
-      })
-    );
-  }
-}
-function safeNormalizeMsg(e: unknown, fallback = "Something went wrong") {
-  try {
-    const n = normalizeEvmError(e);
-    return n?.message || fallback;
-  } catch {
-    return (e as any)?.shortMessage || (e as any)?.message || fallback;
-  }
-}
-
-/* ===========================
-   Utils
+   Small utils
 =========================== */
 const addCommas = (n: string) => n.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 const prettyFixed = (v: bigint, decimals: number, places = 2) => {
@@ -229,22 +96,40 @@ const prettyUSD = (n: number) =>
   n.toLocaleString(undefined, { maximumFractionDigits: 6 });
 
 /* ===========================
+   ERC20 ABIs (view/approve)
+=========================== */
+const ERC20_ABI = [
+  { type: "function", name: "allowance", stateMutability: "view", inputs: [
+      { name: "owner", type: "address" }, { name: "spender", type: "address" },
+    ], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [
+      { name: "spender", type: "address" }, { name: "amount", type: "uint256" },
+    ], outputs: [{ type: "bool" }] },
+] as const;
+
+const ERC20_VIEW_ABI = [
+  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
+  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "owner", type: "address" }], outputs: [{ type: "uint256" }] },
+] as const;
+
+/* ===========================
+   Minimal reads for staking (view)
+=========================== */
+const STAKING_READS_ABI = [
+  { type: "function", name: "userTotalStaked", stateMutability: "view", inputs: [{ name: "user", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "isWhitelisted", stateMutability: "view", inputs: [{ name: "user", type: "address" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "paused", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+] as const;
+
+/* ===========================
    Component
 =========================== */
 const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) => {
-  log("ENV", {
-    chain: "BSC Mainnet (56)",
-    staking: short(stakingContract),
-    yYearn: short(yYearn),
-    sYearn: short(sYearn),
-    pYearn: short(pYearn),
-    defaultRef: short(DEFAULT_REFERRER),
-  });
-
   const { address, chainId: connectedChainId, isConnected } = useAccount();
   const wagmiPublic = useWagmiPublicClient({ chainId: bsc.id });
 
-  // Fallback client
   const fallbackPublic = useMemo(
     () =>
       createPublicClient({
@@ -260,7 +145,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
 
   const [chainIssue, setChainIssue] = useState<string | null>(null);
 
-  // Authoritative chain check from the wallet (fixes false warnings)
+  // Authoritative wallet chain check
   useEffect(() => {
     let stop = false;
 
@@ -279,7 +164,6 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       }
     })();
 
-    // small initial poll to clear races after a switch
     const t = setInterval(async () => {
       if (!isConnected || !walletClient) return;
       try {
@@ -298,19 +182,13 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     if (!walletClient) throw new Error("Connect wallet.");
     const targetHex = `0x${bsc.id.toString(16)}`;
     let currentHex: string | null = null;
-    try {
-      currentHex = (await walletClient.request({ method: "eth_chainId" })) as string;
-    } catch {}
+    try { currentHex = (await walletClient.request({ method: "eth_chainId" })) as string; } catch {}
     if (currentHex?.toLowerCase() === targetHex.toLowerCase()) return;
 
     try {
-      await walletClient.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: targetHex }],
-      });
+      await walletClient.request({ method: "wallet_switchEthereumChain", params: [{ chainId: targetHex }] });
     } catch (e: any) {
-      const needsAdd =
-        e?.code === 4902 || /not added|unrecognized chain/i.test(e?.message || "");
+      const needsAdd = e?.code === 4902 || /not added|unrecognized chain/i.test(e?.message || "");
       if (!needsAdd) throw new Error("Please switch your wallet to BSC Mainnet.");
       await walletClient.request({
         method: "wallet_addEthereumChain",
@@ -322,10 +200,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
           blockExplorerUrls: ["https://bscscan.com"],
         }],
       });
-      await walletClient.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: targetHex }],
-      });
+      await walletClient.request({ method: "wallet_switchEthereumChain", params: [{ chainId: targetHex }] });
     }
     const afterHex = (await walletClient.request({ method: "eth_chainId" })) as string;
     if (afterHex?.toLowerCase() !== targetHex.toLowerCase())
@@ -355,59 +230,115 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     validCompositions.length > 0 ? validCompositions[selectedIdx] : [100, 0, 0];
 
   /* ===========================
-     Amount & stake-multiple UX
+     Stake multiple via SUBGRAPH
+  =========================== */
+  const [sgMultiple, setSgMultiple] = useState<number>(0);
+
+  useEffect(() => {
+    if (!SUBGRAPH_URL) {
+      setSgMultiple(0);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        // Your reference query shape, narrowed client-side
+        const query = `
+          query Pkgs {
+            packages(first: 50, orderBy: packageId, orderDirection: asc) {
+              packageId
+              stakeMultiple
+            }
+          }
+        `;
+        const res = await fetch(SUBGRAPH_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        const json = await res.json();
+        const rows: any[] = json?.data?.packages || [];
+        const row = rows.find((r) => String(r?.packageId) === String(pkg.id));
+        const m = Number(row?.stakeMultiple || 0);
+        if (!cancelled) setSgMultiple(Number.isFinite(m) && m > 0 ? m : 0);
+      } catch (e) {
+        if (!cancelled) setSgMultiple(0);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pkg.id]);
+
+  // Effective multiple preference: subgraph → prop → none
+  const effectiveMultiple = useMemo(() => {
+    if (sgMultiple > 0) return sgMultiple;
+    if (typeof pkg.stakeMultiple === "number" && pkg.stakeMultiple > 0) return pkg.stakeMultiple;
+    return 0;
+  }, [sgMultiple, pkg.stakeMultiple]);
+
+  /* ===========================
+     Amount & multiple UX
   =========================== */
   const initialAmount = useMemo(() => {
-    // Start at least-min and aligned to multiple if provided (for a pleasant default)
-    const m = pkg.stakeMultiple || 0;
+    const m = effectiveMultiple || 0;
     if (!m) return String(Math.max(pkg.minAmount, 0));
     const k = Math.ceil(Math.max(pkg.minAmount, 0) / m);
     return String(k * m);
-  }, [pkg.minAmount, pkg.stakeMultiple]);
+  }, [pkg.minAmount, effectiveMultiple]);
 
   const [amount, setAmount] = useState(initialAmount);
 
-  // raw number from input; no silent clamping
+  // If multiple arrives later from subgraph, softly align the default
+  useEffect(() => {
+    setAmount((prev) => {
+      if (prev !== initialAmount && prev !== String(pkg.minAmount)) return prev;
+      return initialAmount;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAmount]);
+
   const amountNum = useMemo(() => {
     const n = Number(amount || 0);
     return !isFinite(n) || n < 0 ? 0 : n;
   }, [amount]);
 
   const meetsMin = amountNum >= pkg.minAmount;
-  const multiple = pkg.stakeMultiple ?? 0;
-  const isMultipleOk = multiple ? amountNum % multiple === 0 : true;
+  const isMultipleOk = effectiveMultiple ? amountNum % effectiveMultiple === 0 : true;
 
   const toNextMultipleDelta = useMemo(() => {
-    if (!multiple) return 0;
-    if (amountNum <= 0) return multiple;
-    const next = Math.ceil(amountNum / multiple) * multiple;
+    const m = effectiveMultiple;
+    if (!m) return 0;
+    if (amountNum <= 0) return m;
+    const next = Math.ceil(amountNum / m) * m;
     const delta = next - amountNum;
-    return delta === 0 ? multiple : delta;
-  }, [amountNum, multiple]);
+    return delta === 0 ? m : delta;
+  }, [amountNum, effectiveMultiple]);
 
   const bumpByMultiples = (count: number) => {
-    if (!multiple || count <= 0) return;
+    const m = effectiveMultiple;
+    if (!m || count <= 0) return;
     const base = Math.max(0, amountNum);
-    const next = base + multiple * count;
+    const next = base + m * count;
     setAmount(String(next));
   };
 
   const nudgeToNextValid = () => {
-    if (!multiple) return;
+    const m = effectiveMultiple;
+    if (!m) return;
     setAmount(String(amountNum + toNextMultipleDelta));
   };
 
   const nudgeToMin = () => {
-    if (!multiple) {
+    const m = effectiveMultiple;
+    if (!m) {
       setAmount(String(Math.max(pkg.minAmount, 0)));
       return;
     }
-    const k = Math.ceil(Math.max(pkg.minAmount, 0) / multiple);
-    setAmount(String(k * multiple));
+    const k = Math.ceil(Math.max(pkg.minAmount, 0) / m);
+    setAmount(String(k * m));
   };
 
   /* ===========================
-     Splits per token
+     Token splits (per composition)
   =========================== */
   const humanPerToken = useMemo<[number, number, number]>(() => {
     const [py, ps, pp] = selected;
@@ -451,7 +382,6 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
           })
         );
         setTokenMeta(meta);
-        log("tokenMeta", meta.map((m) => ({ sym: m.symbol, dec: m.decimals, bal: m.balance.toString(), addr: short(m.address) })));
       } catch (e) {
         err("token meta read failed", e);
         setTokenMeta(null);
@@ -489,7 +419,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
   const amtsAll: bigint[] = [weiPerToken[0], weiPerToken[1], weiPerToken[2]];
 
   /* ===========================
-     Contract paused / package info
+     Contract paused
   =========================== */
   async function isPaused(): Promise<boolean | null> {
     try {
@@ -498,31 +428,6 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         abi: STAKING_READS_ABI,
         functionName: "paused",
       })) as boolean;
-    } catch {
-      return null;
-    }
-  }
-
-  type PkgInfo = {
-    isActive?: boolean;
-    minStakeAmount?: bigint;
-    stakeMultiple?: bigint;
-  };
-  async function readPackageInfo(pid: bigint): Promise<PkgInfo | null> {
-    try {
-      const res = (await publicClient.readContract({
-        address: stakingContract,
-        abi: STAKING_READS_ABI,
-        functionName: "packages",
-        args: [pid],
-      })) as any;
-    const out: PkgInfo = {};
-      if (res && typeof res === "object") {
-        if ("isActive" in res) out.isActive = Boolean(res.isActive);
-        if ("minStakeAmount" in res) out.minStakeAmount = BigInt(res.minStakeAmount);
-        if ("stakeMultiple" in res) out.stakeMultiple = BigInt(res.stakeMultiple);
-      }
-      return out;
     } catch {
       return null;
     }
@@ -553,13 +458,13 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       const [wl, staked] = await Promise.all([
         publicClient.readContract({
           address: stakingContract,
-          abi: REF_VALID_ABI,
+          abi: STAKING_READS_ABI,
           functionName: "isWhitelisted",
           args: [addr],
         }) as Promise<boolean>,
         publicClient.readContract({
           address: stakingContract,
-          abi: REF_VALID_ABI,
+          abi: STAKING_READS_ABI,
           functionName: "userTotalStaked",
           args: [addr],
         }) as Promise<bigint>,
@@ -592,33 +497,15 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     if (sumPct !== 100) return "Composition must sum to 100%.";
     if (amtsAll[0] + amtsAll[1] + amtsAll[2] === 0n) return "Total amount is zero.";
 
-    // Client-side early validation for stakeMultiple and min (UX hint; on-chain still enforced)
+    // Client-side early validation for min and multiple (from subgraph/prop)
     if (!meetsMin) return `Amount must be at least ${pkg.minAmount}.`;
-    if (!isMultipleOk && multiple) {
+    if (!isMultipleOk && effectiveMultiple) {
       const delta = toNextMultipleDelta;
-      return `Amount must be a multiple of ${multiple}. Add +${delta} to fix.`;
+      return `Amount must be a multiple of ${effectiveMultiple}. Add +${delta} to fix.`;
     }
 
     const paused = await isPaused();
     if (paused === true) return "Contract is paused.";
-
-    const onchainPkg = await readPackageInfo(BigInt(pkg.id));
-    if (onchainPkg?.isActive === false) return "Package is inactive on-chain.";
-
-    // Enforce on-chain min/multiple against TOTAL (unchanged behavior)
-    if (onchainPkg?.minStakeAmount) {
-      const totalWei = (amtsAll[0] ?? 0n) + (amtsAll[1] ?? 0n) + (amtsAll[2] ?? 0n);
-      if (totalWei < onchainPkg.minStakeAmount) {
-        return `Total stake below on-chain minimum: need ${onchainPkg.minStakeAmount.toString()}`;
-      }
-      if (
-        onchainPkg.stakeMultiple &&
-        onchainPkg.stakeMultiple > 0n &&
-        totalWei % onchainPkg.stakeMultiple !== 0n
-      ) {
-        return `Total stake must be a multiple of ${onchainPkg.stakeMultiple.toString()}`;
-      }
-    }
 
     if (!finalRef) return "Internal: missing default referrer.";
     const refOk = await isReferrerValid(finalRef);
@@ -670,10 +557,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         account: owner,
       });
       const tx = await walletClient!.writeContract({ ...sim.request, chain: bsc });
-      await publicClient.waitForTransactionReceipt({
-        hash: tx,
-        confirmations: WAIT_CONFIRMATIONS,
-      });
+      await publicClient.waitForTransactionReceipt({ hash: tx, confirmations: WAIT_CONFIRMATIONS });
     };
 
     try {
@@ -696,7 +580,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       if (need === 0n) continue;
 
       const before = await readAllowance(owner, token, spender);
-      const isYY = eqAddr(token, yYearn);
+      const isYY = token.toLowerCase() === yYearn.toLowerCase();
       const target = isYY && !USE_MAX_ALLOWANCE_FOR_YY ? need : MAX_UINT256;
 
       if (before >= need && (!isYY || (USE_MAX_ALLOWANCE_FOR_YY ? before > 0n : true))) {
@@ -714,7 +598,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       }
       if (!ok) {
         const a = await readAllowance(owner, token, spender);
-        throw new Error(`${eqAddr(token, yYearn) ? "YY" : eqAddr(token, sYearn) ? "SY" : "PY"} approval not sufficient. Have ${a.toString()}, need ${need.toString()}`);
+        throw new Error(`${isYY ? "YY" : token.toLowerCase() === sYearn.toLowerCase() ? "SY" : "PY"} approval not sufficient. Have ${a.toString()}, need ${need.toString()}`);
       }
     }
   }
@@ -735,23 +619,12 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       chain: bsc,
     };
 
-    // Helpful debug
-    log("stake call args", {
-      pid: pkg.id,
-      tokens: tokensAll,
-      amtsAll: amtsAll.map(String),
-      total: amtsAll.reduce((a, b) => a + b, 0n).toString(),
-      decs: decimals,
-      ref: finalReferrer,
-    });
-
     try {
       const sim = await publicClient.simulateContract(call);
       const hash = await walletClient.writeContract(sim.request);
       setStakeTxHash(hash);
       return hash;
     } catch (e: any) {
-      // show decoded revert if available, but keep us safe from UI helper crashes
       safeShowEvmError(e, "Stake");
       const msg = safeNormalizeMsg(e, e?.shortMessage || e?.message || "Stake simulation failed");
       throw new Error(msg);
@@ -792,41 +665,30 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         if (receipt.status === "reverted") {
           setStakeConfirmed(false);
           const appErr = explainTxError("stake", new Error("Transaction reverted"));
-          window.dispatchEvent(
-            new CustomEvent("toast:error", {
-              detail: {
-                title: appErr.title,
-                description: appErr.message,
-                severity: appErr.severity,
-              },
-            })
-          );
+          window.dispatchEvent(new CustomEvent("toast:error", { detail: { title: appErr.title, description: appErr.message, severity: appErr.severity } }));
           setActionMsg(appErr.message);
           return;
         }
 
-        /* ✅ Optimistic Stake row emitter */
+        // Optimistic event for UI tables
         try {
           let stakeIndexStr: string | undefined;
           let pkgIdNum: number | undefined;
           let startTsNum: number | undefined;
 
-          for (const log of receipt.logs || []) {
+          for (const lg of receipt.logs || []) {
             try {
               const decoded = (await publicClient.decodeEventLog({
                 abi: STAKING_ABI as any,
-                data: log.data,
-                topics: log.topics,
+                data: lg.data,
+                topics: lg.topics,
               })) as any;
               if (decoded?.eventName === "Staked") {
                 const args = decoded.args || {};
-                const userArg: Address | undefined =
-                  (args.user ?? args._user ?? args.account) as Address | undefined;
+                const userArg: Address | undefined = (args.user ?? args._user ?? args.account) as Address | undefined;
                 if (!userArg || userArg.toLowerCase() !== address?.toLowerCase()) continue;
 
-                stakeIndexStr = String(
-                  args.stakeIndex ?? args._stakeIndex ?? args.index ?? args.id ?? ""
-                );
+                stakeIndexStr = String(args.stakeIndex ?? args._stakeIndex ?? args.index ?? args.id ?? "");
                 pkgIdNum = Number(args.packageId ?? args._packageId ?? args.pid ?? args.package ?? pkg.id);
                 startTsNum = Number(args.startTs ?? args.start ?? args.timestamp ?? Math.floor(Date.now() / 1000));
                 break;
@@ -836,24 +698,21 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
 
           const amountLabel = `${amountNum.toLocaleString(undefined, { maximumFractionDigits: 6 })}`;
 
-          window.dispatchEvent(
-            new CustomEvent("stake:optimistic", {
-              detail: {
-                user: address,
-                stakeIndex: stakeIndexStr,
-                packageId: pkgIdNum ?? Number(pkg.id),
-                packageName: pkg.name,
-                amountLabel,
-                startTs: startTsNum,
-                txHash: stakeTxHash,
-              },
-            })
-          );
+          window.dispatchEvent(new CustomEvent("stake:optimistic", {
+            detail: {
+              user: address,
+              stakeIndex: stakeIndexStr,
+              packageId: pkgIdNum ?? Number(pkg.id),
+              packageName: pkg.name,
+              amountLabel,
+              startTs: startTsNum,
+              txHash: stakeTxHash,
+            },
+          }));
         } catch (err) {
           console.warn("Failed to emit optimistic stake event", err);
         }
 
-        /* existing success flow */
         setStakeConfirmed(true);
         window.dispatchEvent(new CustomEvent("staking:updated"));
         showUserSuccess("Stake submitted", "We’ll refresh your positions in a moment.");
@@ -861,7 +720,6 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
         window.dispatchEvent(new CustomEvent("active-packages:refresh"));
         window.dispatchEvent(new CustomEvent("stakes:changed"));
         onClose();
-
       } catch (e) {
         safeShowEvmError(e, "Stake");
         setActionMsg(safeNormalizeMsg(e));
@@ -872,15 +730,15 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
   }, [publicClient, onClose, stakeTxHash, stakeConfirmed, amountNum, pkg.id, pkg.name, address]);
 
   /* ===========================
-     Handler: Approve & Stake (single CTA)
+     CTA handler
   =========================== */
   async function handleApproveAndStake() {
     setActionMsg(null);
     try {
-      // ⛔️ Early UI guard for stakeMultiple/min so we don't even start approvals
+      // Early UI guard
       if (!meetsMin) throw new Error(`Amount must be at least ${pkg.minAmount}.`);
-      if (!isMultipleOk && multiple) {
-        throw new Error(`Amount must be a multiple of ${multiple}. Tip: tap “+${toNextMultipleDelta}” to fix.`);
+      if (!isMultipleOk && effectiveMultiple) {
+        throw new Error(`Amount must be a multiple of ${effectiveMultiple}. Tip: tap “+${toNextMultipleDelta}” to fix.`);
       }
 
       if (!walletClient || !address) throw new Error("Connect wallet.");
@@ -896,14 +754,9 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
       const sanity = await preStakeSanityCheck(finalRef);
       if (sanity) throw new Error(sanity);
 
-      // 1) Approvals (inline, exact for YY, MAX for others)
+      // 1) Approvals
       setIsApproving(true);
-      await ensureApprovalForBundle(
-        address as Address,
-        stakingContract,
-        tokensAll,
-        amtsAll
-      );
+      await ensureApprovalForBundle(address as Address, stakingContract, tokensAll, amtsAll);
       setIsApproving(false);
 
       // 2) Stake
@@ -919,7 +772,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
   }
 
   /* ===========================
-     Allocation Need/Have helpers
+     Allocation helpers
   =========================== */
   const formatWei = (wei: bigint, dec: number) => prettyFixed(wei, dec, 2);
 
@@ -943,7 +796,6 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     needWei[1] > haveWei[1] ? needWei[1] - haveWei[1] : 0n,
     needWei[2] > haveWei[2] ? needWei[2] - haveWei[2] : 0n,
   ];
-
   const hasSufficientBalances =
     shortWei[0] === 0n && shortWei[1] === 0n && shortWei[2] === 0n;
 
@@ -958,7 +810,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
     !!stakeTxHash ||
     !address ||
     amountNum < pkg.minAmount ||
-    !isMultipleOk || // 🔒 block CTA when not respecting stakeMultiple
+    (!!effectiveMultiple && !isMultipleOk) || // enforce multiples from subgraph/prop
     validCompositions.length === 0 ||
     !!chainIssue ||
     (amtsAll[0] + amtsAll[1] + amtsAll[2] === 0n) ||
@@ -1031,26 +883,26 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 min={pkg.minAmount}
-                step={pkg.stakeMultiple ?? 1}
+                step={effectiveMultiple || 1}
                 inputMode="decimal"
                 className={`w-full pl-11 pr-4 py-3 rounded-xl border text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:ring-2 focus:border-transparent
-                  ${!isMultipleOk || !meetsMin
+                  {!!effectiveMultiple && (!isMultipleOk || !meetsMin)
                     ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 focus:ring-rose-500"
                     : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-white/10 focus:ring-violet-500"}`}
-                aria-invalid={!isMultipleOk || !meetsMin}
+                aria-invalid={!!effectiveMultiple && (!isMultipleOk || !meetsMin)}
               />
             </div>
 
-            {/* Helper + Quick Add Multiples (mobile-first) */}
+            {/* Helper + Quick Add Multiples */}
             <div className="flex flex-col gap-2">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Minimum: {prettyUSD(pkg.minAmount)}
-                {multiple > 0 ? ` • Multiples of ${prettyUSD(multiple)}` : " • Multiples not enforced"}
+                Minimum: {prettyUSD(pkg.minAmount)} •{" "}
+                {effectiveMultiple ? `Multiples of ${prettyUSD(effectiveMultiple)}` : "Multiples not enforced"}
               </p>
 
-              {/* Always render the row; disable buttons when multiple <= 0 */}
               <div className="flex flex-wrap items-center gap-2">
-                {!isMultipleOk && multiple > 0 && (
+                {/* Fix chip only when invalid multiple */}
+                {!!effectiveMultiple && !isMultipleOk && (
                   <button
                     type="button"
                     onClick={nudgeToNextValid}
@@ -1064,26 +916,30 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
 
                 <button
                   type="button"
-                  onClick={() => bumpByMultiples(1)}
-                  disabled={!(multiple > 0)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                             bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200
-                             disabled:opacity-50 hover:opacity-90"
+                  onClick={() => effectiveMultiple && bumpByMultiples(1)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                              ${effectiveMultiple
+                                ? "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200 hover:opacity-90"
+                                : "bg-gray-200/50 text-gray-500 dark:bg-white/10 dark:text-gray-400 cursor-not-allowed"}`}
+                  disabled={!effectiveMultiple}
                 >
                   <Plus className="w-3 h-3" />
                   +1×
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => bumpByMultiples(5)}
-                  disabled={!(multiple > 0)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                             bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200
-                             disabled:opacity-50 hover:opacity-90"
+                  onClick={() => effectiveMultiple && bumpByMultiples(5)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                              ${effectiveMultiple
+                                ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200 hover:opacity-90"
+                                : "bg-gray-200/50 text-gray-500 dark:bg-white/10 dark:text-gray-400 cursor-not-allowed"}`}
+                  disabled={!effectiveMultiple}
                 >
                   <Plus className="w-3 h-3" />
                   +5×
                 </button>
+
                 <button
                   type="button"
                   onClick={nudgeToMin}
@@ -1099,9 +955,9 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
                   Amount must be at least {prettyUSD(pkg.minAmount)}.
                 </p>
               )}
-              {(!isMultipleOk && multiple > 0) && (
+              {!!effectiveMultiple && !isMultipleOk && (
                 <p className="text-xs text-rose-600 dark:text-rose-400">
-                  Amount must be a multiple of {prettyUSD(multiple)}. Tap “Fix +{toNextMultipleDelta}”.
+                  Amount must be a multiple of {prettyUSD(effectiveMultiple)}. Tap “Fix +{toNextMultipleDelta}”.
                 </p>
               )}
             </div>
@@ -1143,10 +999,11 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
               Allocation
             </h3>
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className={`rounded-lg px-2 py-2 border ${ (amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n)
-                    ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
-                    : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
-                }`}>
+              <div className={`rounded-lg px-2 py-2 border ${
+                (amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n)
+                  ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
+                  : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
+              }`}>
                 <div className="text-[11px] uppercase tracking-wide text-gray-500">YYEARN</div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-white">
                   Need {formatWei(amtsAll[0] ?? 0n, decs[0])}
@@ -1156,10 +1013,11 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
                   <span className="font-medium">{formatWei(haveWei[0], decs[0])}</span>
                 </div>
               </div>
-              <div className={`rounded-lg px-2 py-2 border ${ (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n)
-                    ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
-                    : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
-                }`}>
+              <div className={`rounded-lg px-2 py-2 border ${
+                (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n)
+                  ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
+                  : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
+              }`}>
                 <div className="text-[11px] uppercase tracking-wide text-gray-500">SYEARN</div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-white">
                   Need {formatWei(amtsAll[1] ?? 0n, decs[1])}
@@ -1169,10 +1027,11 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
                   <span className="font-medium">{formatWei(haveWei[1], decs[1])}</span>
                 </div>
               </div>
-              <div className={`rounded-lg px-2 py-2 border ${ (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n)
-                    ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
-                    : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
-                }`}>
+              <div className={`rounded-lg px-2 py-2 border ${
+                (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n)
+                  ? "bg-rose-50/60 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-900/40"
+                  : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
+              }`}>
                 <div className="text-[11px] uppercase tracking-wide text-gray-500">PYEARN</div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-white">
                   Need {formatWei(amtsAll[2] ?? 0n, decs[2])}
@@ -1183,18 +1042,16 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
                 </div>
               </div>
             </div>
-            {( (amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n) ||
-               (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n) ||
-               (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n) ) && (
+            {((amtsAll[0] ?? 0n) > (haveWei[0] ?? 0n) ||
+              (amtsAll[1] ?? 0n) > (haveWei[1] ?? 0n) ||
+              (amtsAll[2] ?? 0n) > (haveWei[2] ?? 0n)) && (
               <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">
                 Insufficient balance for the selected allocation. Reduce amount or adjust composition.
               </p>
             )}
           </div>
 
-          {/* (Referrer UI removed; default referrer is used under the hood) */}
-
-          {/* Earnings (informational) */}
+          {/* Earnings */}
           <div className="rounded-xl p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-white/10">
             <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
               Projected Annual Earnings
@@ -1204,12 +1061,6 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
             </div>
             <p className="text-xs text-gray-600 dark:text-gray-400">Based on {pkg.apy}% APY</p>
           </div>
-
-          {DBG && (
-            <div className="text-xs text-gray-500">
-              connectedChainId(wagmi): {connectedChainId ?? "N/A"}
-            </div>
-          )}
 
           {chainIssue && (
             <div className="text-xs text-amber-600 dark:text-amber-400">{chainIssue}</div>
@@ -1234,9 +1085,7 @@ const StakingModal: React.FC<StakingModalProps> = ({ package: pkg, onClose }) =>
               ) : (
                 <Zap className="w-4 h-4" />
               )}
-              <span>
-                {mainBtnText}
-              </span>
+              <span>{mainBtnText}</span>
             </button>
           </div>
         </div>
